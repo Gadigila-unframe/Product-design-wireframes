@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<title>DES-129 — Custom Column Discovery & Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#F4F5F7; --surface:#FFFFFF; --border:#E2E4E9; --border-light:#F0F1F5;
+    --text-primary:#0F172A; --text-secondary:#64748B; --text-muted:#94A3B8;
+    --accent:#7849FF; --accent-light:#F3EEFF; --accent-hover:#6636F0;
+    --success:#10B981; --success-bg:#ECFDF5; --success-border:#A7F3D0;
+    --warning-bg:#FFFBEB; --warning-border:#FDE68A; --warning:#F59E0B;
+    --danger:#EF4444;
+    --radius-xs:6px; --radius-sm:8px; --radius:12px;
+    --shadow-sm:0 1px 3px rgba(15,23,42,.06), 0 1px 2px rgba(15,23,42,.04);
+    --shadow-md:0 4px 12px rgba(15,23,42,.08);
+  }
+  body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text-primary); font-size:13px; line-height:1.5; height:100vh; display:flex; flex-direction:column; }
+  .state-bar { position:fixed; top:0; left:0; right:0; background:#1a1a2e; z-index:200; padding:7px 16px; display:flex; align-items:center; gap:12px; }
+  .state-bar-label { color:rgba(255,255,255,.45); font-size:11px; white-space:nowrap; }
+  .state-tabs { display:flex; border:1px solid #333; border-radius:5px; overflow:hidden; }
+  .state-tab { padding:5px 12px; font-size:11px; color:#888; cursor:pointer; background:#252540; border-right:1px solid #333; }
+  .state-tab:last-child { border-right:none; }
+  .state-tab.active { background:var(--accent); color:#fff; }
+  .state-bar a { color:#888; font-size:11px; margin-left:auto; text-decoration:none; }
+  .spacer { height:38px; }
+  .app { display:flex; height:calc(100vh - 38px); }
+  .sidebar { width:56px; background:var(--surface); border-right:1px solid var(--border); flex-shrink:0; display:flex; flex-direction:column; align-items:center; padding:12px 0; gap:8px; }
+  .sidebar-icon { width:32px; height:32px; border-radius:8px; background:var(--border-light); }
+  .sidebar-icon.active { background:var(--accent-light); }
+  .main { flex:1; display:flex; overflow:hidden; }
+  .wizard { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  .wizard-header { padding:18px 28px 0; border-bottom:1px solid var(--border); background:var(--surface); flex-shrink:0; }
+  .wizard-file { font-size:14px; font-weight:600; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+  .wizard-steps { display:flex; align-items:center; gap:0; }
+  .wizard-step { display:flex; align-items:center; gap:7px; padding:10px 16px 10px 0; font-size:12px; color:var(--text-muted); }
+  .wizard-step.done { color:var(--text-secondary); }
+  .wizard-step.active { color:var(--text-primary); font-weight:600; }
+  .step-num { width:22px; height:22px; border-radius:50%; background:var(--border-light); display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:var(--text-muted); flex-shrink:0; }
+  .step-num.done { background:var(--success); color:#fff; }
+  .step-num.active { background:var(--accent); color:#fff; }
+  .step-sep { color:var(--border); margin-right:16px; font-size:14px; }
+  .wizard-body { flex:1; overflow:auto; padding:24px 28px; }
+  .wizard-footer { padding:14px 28px; border-top:1px solid var(--border); background:var(--surface); display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+  .btn { height:36px; padding:0 16px; border-radius:var(--radius-sm); font-size:13px; font-weight:500; cursor:pointer; border:none; display:inline-flex; align-items:center; gap:6px; transition:all .15s; font-family:inherit; }
+  .btn-primary { background:var(--accent); color:#fff; }
+  .btn-primary:hover { background:var(--accent-hover); }
+  .btn-ghost { background:transparent; color:var(--text-secondary); border:1px solid var(--border); }
+  .btn-ghost:hover { background:var(--bg); }
+  .btn-sm { height:28px; padding:0 10px; border-radius:var(--radius-xs); font-size:11px; font-weight:500; cursor:pointer; border:none; display:inline-flex; align-items:center; gap:4px; font-family:inherit; }
+  .btn-sm-create { background:var(--accent); color:#fff; }
+  .btn-sm-create:hover { background:var(--accent-hover); }
+  .btn-sm-ignore { background:var(--surface); color:var(--text-muted); border:1px solid var(--border); }
+  .btn-sm-ignore:hover { color:var(--danger); border-color:var(--danger); }
+
+  /* Discovery banner */
+  .discovery-banner { background:var(--accent-light); border:1px solid #C4B5FD; border-radius:var(--radius); padding:16px 20px; margin-bottom:20px; display:flex; align-items:flex-start; gap:14px; }
+  .discovery-icon { width:40px; height:40px; background:var(--accent); border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+  .discovery-title { font-size:14px; font-weight:600; color:var(--accent); }
+  .discovery-sub { font-size:12px; color:#6D28D9; margin-top:3px; }
+  .allclear-banner { background:var(--success-bg); border:1px solid var(--success-border); border-radius:var(--radius); padding:16px 20px; margin-bottom:20px; display:flex; align-items:flex-start; gap:14px; }
+  .allclear-icon { width:40px; height:40px; background:var(--success); border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; color:#fff; }
+  .allclear-title { font-size:14px; font-weight:600; color:#065F46; }
+  .allclear-sub { font-size:12px; color:var(--success); margin-top:3px; }
+
+  .section-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:8px; margin-top:20px; }
+  .section-label:first-child { margin-top:0; }
+
+  /* Mapping table */
+  .mapping-table { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; box-shadow:var(--shadow-sm); }
+  .mapping-row { display:grid; grid-template-columns:2fr 2fr 1.4fr 1fr; align-items:center; padding:10px 14px; border-bottom:1px solid var(--border-light); gap:12px; }
+  .mapping-row.header-row { background:var(--bg); }
+  .mapping-row:last-child { border-bottom:none; }
+  .col-label { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); }
+  .source-chip { display:inline-flex; padding:2px 8px; border-radius:4px; font-size:12px; background:var(--bg); color:var(--text-secondary); border:1px solid var(--border); }
+  .badge-mapped { display:inline-flex; align-items:center; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:600; background:var(--success-bg); color:var(--success); }
+  .badge-type  { display:inline-flex; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:500; background:var(--border-light); color:var(--text-secondary); }
+  .more-row { font-size:11px; color:var(--text-muted); font-style:italic; padding:8px 14px; background:var(--bg); }
+
+  /* Unrecognized section */
+  .unrec-section { background:var(--warning-bg); border:1px solid var(--warning-border); border-radius:var(--radius-sm); overflow:hidden; margin-top:8px; }
+  .unrec-header { padding:10px 14px; display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--warning-border); background:rgba(245,158,11,.08); }
+  .unrec-title { font-size:12px; font-weight:600; color:#92400E; }
+  .unrec-count { background:var(--warning); color:#fff; border-radius:20px; padding:1px 8px; font-size:10px; font-weight:700; }
+  .unrec-subtitle { font-size:11px; color:#B45309; }
+  .unrec-row { display:grid; grid-template-columns:2fr 1.8fr 1.6fr 1.2fr; align-items:center; padding:10px 14px; border-bottom:1px solid rgba(253,230,138,.6); gap:12px; background:var(--surface); }
+  .unrec-row:last-child { border-bottom:none; }
+  .unrec-row.header-row { background:var(--bg); border-bottom:1px solid var(--warning-border); }
+  .no-match { font-size:11px; color:var(--text-muted); font-style:italic; }
+  .type-suggest { display:flex; align-items:center; gap:6px; }
+  .type-select { border:1px solid var(--border); border-radius:var(--radius-xs); padding:3px 8px; font-size:11px; color:var(--text-secondary); background:var(--surface); font-family:inherit; outline:none; }
+  .type-select:focus { border-color:var(--accent); }
+  .ai-badge { font-size:10px; color:var(--accent); font-weight:600; background:var(--accent-light); padding:1px 6px; border-radius:4px; white-space:nowrap; }
+  .action-row { display:flex; gap:5px; }
+
+  .annotation { background:var(--warning-bg); border:1px solid var(--warning-border); border-radius:var(--radius-sm); padding:10px 14px; font-size:11px; color:#92400E; margin-top:16px; }
+</style>
+</head>
+<body>
+<div class="state-bar">
+  <span class="state-bar-label">DES-129 — Custom Column Discovery · 👤 Gadi's ticket</span>
+  <div class="state-tabs">
+    <div class="state-tab active" onclick="show('disc',this)">Discovery View</div>
+    <div class="state-tab"        onclick="show('clear',this)">No New Columns</div>
+  </div>
+  <a href="https://linear.app/unframe/issue/DES-129" target="_blank">↗ DES-129</a>
+</div>
+<div class="spacer"></div>
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-icon active"></div>
+    <div class="sidebar-icon"></div>
+    <div class="sidebar-icon"></div>
+  </div>
+  <div class="main">
+    <div class="wizard">
+      <div class="wizard-header">
+        <div class="wizard-file">📄 Import File — Tourbook_Q1_2026.xlsx</div>
+        <div class="wizard-steps">
+          <div class="wizard-step done"><div class="step-num done">✓</div> Upload</div>
+          <div class="step-sep">›</div>
+          <div class="wizard-step done"><div class="step-num done">✓</div> Preview</div>
+          <div class="step-sep">›</div>
+          <div class="wizard-step active"><div class="step-num active">3</div> Map Columns</div>
+          <div class="step-sep">›</div>
+          <div class="wizard-step"><div class="step-num">4</div> Review</div>
+          <div class="step-sep">›</div>
+          <div class="wizard-step"><div class="step-num">5</div> Import</div>
+        </div>
+      </div>
+      <div class="wizard-body">
+
+        <!-- DISCOVERY STATE -->
+        <div id="state-disc">
+          <div class="discovery-banner">
+            <div class="discovery-icon">🔍</div>
+            <div>
+              <div class="discovery-title">We found 3 new data types in your file</div>
+              <div class="discovery-sub">These columns don't match any standard field. Create custom fields or ignore them to continue.</div>
+            </div>
+          </div>
+          <div class="section-label" style="margin-top:0">Standard Fields — Mapped (8)</div>
+          <div class="mapping-table">
+            <div class="mapping-row header-row">
+              <div class="col-label">Source Column</div><div class="col-label">Maps To</div>
+              <div class="col-label">Type</div><div class="col-label">Status</div>
+            </div>
+            <div class="mapping-row">
+              <div><span class="source-chip">Property Name</span></div>
+              <div style="font-size:12px; font-weight:500">Property Name</div>
+              <div><span class="badge-type">Text</span></div><div><span class="badge-mapped">✓ Mapped</span></div>
+            </div>
+            <div class="mapping-row">
+              <div><span class="source-chip">Address</span></div>
+              <div style="font-size:12px; font-weight:500">Street Address</div>
+              <div><span class="badge-type">Text</span></div><div><span class="badge-mapped">✓ Mapped</span></div>
+            </div>
+            <div class="mapping-row">
+              <div><span class="source-chip">Sq Ft</span></div>
+              <div style="font-size:12px; font-weight:500">Square Footage</div>
+              <div><span class="badge-type">Number</span></div><div><span class="badge-mapped">✓ Mapped</span></div>
+            </div>
+            <div class="more-row">+ 5 more standard fields matched automatically</div>
+          </div>
+          <div class="section-label" style="color:#92400E; margin-top:24px;">Unrecognized Columns — Action Required (3)</div>
+          <div class="unrec-section">
+            <div class="unrec-header">
+              <span class="unrec-title">⚡ Exceptional Fields</span>
+              <span class="unrec-count">3 new</span>
+              <span class="unrec-subtitle">These don't exist in your base template</span>
+            </div>
+            <div class="unrec-row header-row">
+              <div class="col-label">Source Column</div><div class="col-label">Match</div>
+              <div class="col-label">Field Type (AI Suggested)</div><div class="col-label">Action</div>
+            </div>
+            <div class="unrec-row">
+              <div><span class="source-chip">Historical Vacancy</span></div>
+              <div class="no-match">No match found</div>
+              <div class="type-suggest">
+                <select class="type-select"><option>% / Number</option><option>Text</option><option>Currency</option><option>Date</option></select>
+                <span class="ai-badge">AI 92%</span>
+              </div>
+              <div class="action-row">
+                <button class="btn-sm btn-sm-create">+ Create Field</button>
+                <button class="btn-sm btn-sm-ignore">Ignore</button>
+              </div>
+            </div>
+            <div class="unrec-row">
+              <div><span class="source-chip">Ceiling Height</span></div>
+              <div class="no-match">No match found</div>
+              <div class="type-suggest">
+                <select class="type-select"><option>Number</option><option>Text</option><option>Boolean</option></select>
+                <span class="ai-badge">AI 88%</span>
+              </div>
+              <div class="action-row">
+                <button class="btn-sm btn-sm-create">+ Create Field</button>
+                <button class="btn-sm btn-sm-ignore">Ignore</button>
+              </div>
+            </div>
+            <div class="unrec-row">
+              <div><span class="source-chip">LEED Certification</span></div>
+              <div class="no-match">No match found</div>
+              <div class="type-suggest">
+                <select class="type-select"><option>Text</option><option>Boolean</option><option>Number</option></select>
+                <span class="ai-badge">AI 74%</span>
+              </div>
+              <div class="action-row">
+                <button class="btn-sm btn-sm-create">+ Create Field</button>
+                <button class="btn-sm btn-sm-ignore">Ignore</button>
+              </div>
+            </div>
+          </div>
+          <div class="annotation">
+            ❓ <strong>Open Questions:</strong><br>
+            • Where in the wizard does discovery appear? (Step 3 = correct?)<br>
+            • Can user ignore ALL unrecognized columns at once ("Ignore All")?<br>
+            • Full list of available field types? (Text, Number, Currency, Date, Boolean, %...)<br>
+            • When "Create Field" is clicked — inline form or separate modal?<br>
+            • AI confidence: always visible or only on hover?<br>
+            • What happens to Continue if unresolved columns remain?
+          </div>
+        </div>
+
+        <!-- ALL CLEAR STATE -->
+        <div id="state-clear" style="display:none">
+          <div class="allclear-banner">
+            <div class="allclear-icon">✓</div>
+            <div>
+              <div class="allclear-title">All columns matched</div>
+              <div class="allclear-sub">No unrecognized columns found. You're good to continue!</div>
+            </div>
+          </div>
+          <div class="section-label" style="margin-top:0">Standard Fields — All Mapped (11)</div>
+          <div class="mapping-table">
+            <div class="mapping-row header-row">
+              <div class="col-label">Source Column</div><div class="col-label">Maps To</div>
+              <div class="col-label">Type</div><div class="col-label">Status</div>
+            </div>
+            <div class="mapping-row">
+              <div><span class="source-chip">Property Name</span></div>
+              <div style="font-size:12px; font-weight:500">Property Name</div>
+              <div><span class="badge-type">Text</span></div><div><span class="badge-mapped">✓ Mapped</span></div>
+            </div>
+            <div class="mapping-row">
+              <div><span class="source-chip">Address</span></div>
+              <div style="font-size:12px; font-weight:500">Street Address</div>
+              <div><span class="badge-type">Text</span></div><div><span class="badge-mapped">✓ Mapped</span></div>
+            </div>
+            <div class="mapping-row">
+              <div><span class="source-chip">Sq Ft</span></div>
+              <div style="font-size:12px; font-weight:500">Square Footage</div>
+              <div><span class="badge-type">Number</span></div><div><span class="badge-mapped">✓ Mapped</span></div>
+            </div>
+            <div class="more-row">+ 8 more standard fields matched automatically</div>
+          </div>
+        </div>
+
+      </div>
+      <div class="wizard-footer">
+        <button class="btn btn-ghost">← Back</button>
+        <div style="display:flex; gap:12px; align-items:center;">
+          <span id="hint-disc" style="font-size:12px; color:#92400E; font-weight:500;">3 unrecognized columns need action</span>
+          <span id="hint-clear" style="display:none; font-size:12px; color:var(--success); font-weight:500;">All columns resolved ✓</span>
+          <button class="btn btn-primary">Continue →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+function show(state, el) {
+  document.getElementById('state-disc').style.display = 'none';
+  document.getElementById('state-clear').style.display = 'none';
+  document.getElementById('state-' + state).style.display = 'block';
+  document.querySelectorAll('.state-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('hint-disc').style.display  = state === 'disc'  ? 'block' : 'none';
+  document.getElementById('hint-clear').style.display = state === 'clear' ? 'block' : 'none';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<title>DES-125 — Change Transaction Type Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#F4F5F7; --surface:#FFFFFF; --border:#E2E4E9; --border-light:#F0F1F5;
+    --text-primary:#0F172A; --text-secondary:#64748B; --text-muted:#94A3B8;
+    --accent:#7849FF; --accent-light:#F3EEFF; --accent-hover:#6636F0;
+    --success:#10B981; --success-bg:#ECFDF5;
+    --warning-bg:#FFFBEB; --warning-border:#FDE68A; --warning:#F59E0B;
+    --danger:#EF4444; --orange:#F97316; --orange-light:#FFF7ED;
+    --radius-xs:6px; --radius-sm:8px; --radius:12px;
+    --shadow-sm:0 1px 3px rgba(15,23,42,.06), 0 1px 2px rgba(15,23,42,.04);
+    --shadow-xl:0 20px 60px rgba(15,23,42,.18), 0 8px 24px rgba(15,23,42,.10);
+  }
+  body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text-primary); font-size:13px; line-height:1.5; height:100vh; display:flex; flex-direction:column; }
+  .state-bar { position:fixed; top:0; left:0; right:0; background:#1a1a2e; z-index:200; padding:7px 16px; display:flex; align-items:center; gap:12px; }
+  .state-bar-label { color:rgba(255,255,255,.45); font-size:11px; white-space:nowrap; }
+  .state-tabs { display:flex; border:1px solid #333; border-radius:5px; overflow:hidden; }
+  .state-tab { padding:5px 11px; font-size:11px; color:#888; cursor:pointer; background:#252540; border-right:1px solid #333; white-space:nowrap; }
+  .state-tab:last-child { border-right:none; }
+  .state-tab.active { background:var(--accent); color:#fff; }
+  .state-bar a { color:#888; font-size:11px; margin-left:auto; text-decoration:none; }
+  .spacer { height:38px; }
+  .app { display:flex; height:calc(100vh - 38px); }
+  .sidebar { width:56px; background:var(--surface); border-right:1px solid var(--border); flex-shrink:0; display:flex; flex-direction:column; align-items:center; padding:12px 0; gap:8px; }
+  .sidebar-icon { width:32px; height:32px; border-radius:8px; background:var(--border-light); }
+  .sidebar-icon.active { background:var(--accent-light); }
+  .main { flex:1; padding:24px; overflow:auto; position:relative; }
+  .page-title { font-size:18px; font-weight:600; margin-bottom:16px; }
+  .table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-sm); margin-bottom:24px; }
+  .table-row { display:flex; padding:10px 16px; border-bottom:1px solid var(--border-light); gap:16px; align-items:center; }
+  .table-row.header { background:var(--bg); }
+  .col { flex:1; font-size:13px; }
+  .col.h { font-size:11px; font-weight:600; text-transform:uppercase; color:var(--text-muted); letter-spacing:.04em; }
+  .badge { display:inline-flex; align-items:center; padding:2px 9px; border-radius:20px; font-size:11px; font-weight:500; background:var(--border-light); color:var(--text-secondary); }
+  .badge.purple { background:var(--accent-light); color:var(--accent); }
+  .badge.green  { background:var(--success-bg); color:var(--success); }
+  .badge.amber  { background:var(--warning-bg); color:#92400E; }
+  .dropdown-wrap { position:relative; display:inline-block; }
+  .dropdown-menu { position:absolute; top:calc(100% + 4px); left:0; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px 0; z-index:50; min-width:168px; box-shadow:var(--shadow-xl); }
+  .dropdown-item { padding:8px 14px; font-size:13px; color:var(--text-primary); cursor:pointer; display:flex; align-items:center; gap:8px; }
+  .dropdown-item:hover { background:var(--bg); }
+  .dropdown-item.current { color:var(--text-muted); cursor:not-allowed; font-style:italic; }
+  .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .overlay { position:fixed; inset:0; background:rgba(15,23,42,.45); display:flex; align-items:center; justify-content:center; z-index:100; backdrop-filter:blur(2px); }
+  .dialog { background:var(--surface); border-radius:var(--radius); padding:24px; width:460px; box-shadow:var(--shadow-xl); border:1px solid var(--border); }
+  .dialog-title { font-size:16px; font-weight:600; margin-bottom:4px; }
+  .dialog-sub { font-size:13px; color:var(--text-secondary); margin-bottom:16px; }
+  .dialog-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:20px; }
+  .banner-warn { background:var(--warning-bg); border:1px solid var(--warning-border); border-radius:var(--radius-xs); padding:10px 12px; font-size:12px; color:#92400E; margin-bottom:14px; }
+  .warning-bar { background:var(--orange-light); border-left:3px solid var(--orange); padding:8px 12px; font-size:12px; color:#9A3412; margin:12px 0; border-radius:0 var(--radius-xs) var(--radius-xs) 0; }
+  .phase-preview { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 14px; margin:12px 0; }
+  .phase-preview-label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px; }
+  .phase-pills { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+  .phase-pill { background:var(--border-light); border-radius:20px; padding:3px 10px; font-size:11px; color:var(--text-secondary); font-weight:500; }
+  .phase-arrow { color:var(--text-muted); font-size:10px; }
+  .template-cards { display:flex; flex-direction:column; gap:8px; margin:12px 0; }
+  .template-card { border:1.5px solid var(--border); border-radius:var(--radius-sm); padding:12px 14px; cursor:pointer; transition:all .15s; }
+  .template-card:hover { border-color:var(--accent); background:var(--accent-light); }
+  .template-card.selected { border-color:var(--accent); background:var(--accent-light); }
+  .template-card-name { font-size:13px; font-weight:600; margin-bottom:8px; }
+  .template-default { font-size:10px; color:var(--text-muted); font-weight:400; margin-left:6px; }
+  .toast { position:fixed; bottom:24px; right:24px; background:#0F172A; color:#fff; padding:12px 18px; border-radius:var(--radius-sm); font-size:13px; display:flex; align-items:center; gap:10px; box-shadow:0 4px 20px rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.08); }
+  .toast-check { width:18px; height:18px; background:var(--success); border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; flex-shrink:0; }
+  .btn { height:36px; padding:0 16px; border-radius:var(--radius-sm); font-size:13px; font-weight:500; cursor:pointer; border:none; display:inline-flex; align-items:center; gap:6px; transition:all .15s; font-family:inherit; }
+  .btn-primary { background:var(--accent); color:#fff; }
+  .btn-primary:hover { background:var(--accent-hover); }
+  .btn-ghost { background:transparent; color:var(--text-secondary); border:1px solid var(--border); }
+  .btn-ghost:hover { background:var(--bg); }
+  .btn-link { background:transparent; color:var(--text-muted); border:none; }
+  .annotation { background:var(--warning-bg); border:1px solid var(--warning-border); border-radius:var(--radius-sm); padding:10px 14px; font-size:11px; color:#92400E; max-width:500px; margin-top:16px; }
+</style>
+</head>
+<body>
+<div class="state-bar">
+  <span class="state-bar-label">DES-125 — Change Transaction Type</span>
+  <div class="state-tabs">
+    <div class="state-tab active" onclick="show('s1',this)">1 Template → Confirm</div>
+    <div class="state-tab"        onclick="show('s2',this)">Multi Template → Select</div>
+    <div class="state-tab"        onclick="show('s3',this)">No Dialog → Toast</div>
+    <div class="state-tab"        onclick="show('lr',this)">From Lease Review</div>
+  </div>
+  <a href="https://linear.app/unframe/issue/DES-125" target="_blank">↗ DES-125</a>
+</div>
+<div class="spacer"></div>
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-icon active"></div>
+    <div class="sidebar-icon"></div>
+    <div class="sidebar-icon"></div>
+  </div>
+  <div class="main">
+    <div class="page-title">Transactions</div>
+    <div class="table-wrap">
+      <div class="table-row header">
+        <div class="col h">Name</div><div class="col h">Type ← click to change</div>
+        <div class="col h">Client</div><div class="col h">Phase</div><div class="col h">Status</div>
+      </div>
+      <div class="table-row" style="background:var(--accent-light);">
+        <div class="col" style="font-weight:600">Downtown Office Deal</div>
+        <div class="col">
+          <div class="dropdown-wrap">
+            <span class="badge amber" style="cursor:pointer;">Lease Review ▾</span>
+            <div class="dropdown-menu">
+              <div class="dropdown-item current"><span class="dot" style="background:var(--warning);"></span> Lease Review (current)</div>
+              <div class="dropdown-item"><span class="dot" style="background:var(--accent);"></span> Lease</div>
+              <div class="dropdown-item"><span class="dot" style="background:var(--success);"></span> Purchase</div>
+              <div class="dropdown-item"><span class="dot" style="background:var(--orange);"></span> Sale</div>
+              <div class="dropdown-item"><span class="dot" style="background:var(--text-muted);"></span> Refinance</div>
+            </div>
+          </div>
+        </div>
+        <div class="col">Acme Corp</div>
+        <div class="col">Negotiation</div>
+        <div class="col"><span class="badge green">Active</span></div>
+      </div>
+      <div class="table-row">
+        <div class="col">Westside Retail</div>
+        <div class="col"><span class="badge purple">Sale</span></div>
+        <div class="col">RetailCo</div><div class="col">LOI</div>
+        <div class="col"><span class="badge">Active</span></div>
+      </div>
+    </div>
+
+    <!-- S1: Single template confirmation -->
+    <div id="state-s1">
+      <div class="overlay">
+        <div class="dialog">
+          <div class="dialog-title">Change type to Lease?</div>
+          <div class="dialog-sub">A phase template will be applied to this transaction.</div>
+          <div class="phase-preview">
+            <div class="phase-preview-label">Standard Lease Template · 5 phases</div>
+            <div class="phase-pills">
+              <span class="phase-pill">LOI</span><span class="phase-arrow">→</span>
+              <span class="phase-pill">Negotiation</span><span class="phase-arrow">→</span>
+              <span class="phase-pill">Due Diligence</span><span class="phase-arrow">→</span>
+              <span class="phase-pill">Execution</span><span class="phase-arrow">→</span>
+              <span class="phase-pill">Closing</span>
+            </div>
+          </div>
+          <div class="warning-bar">⚠️ Current phase progress will be reset.</div>
+          <div class="dialog-actions">
+            <button class="btn btn-link">Cancel</button>
+            <button class="btn btn-ghost">Keep Current Phases</button>
+            <button class="btn btn-primary">Apply Template</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S2: Multiple templates -->
+    <div id="state-s2" style="display:none;">
+      <div class="overlay">
+        <div class="dialog">
+          <div class="dialog-title">Select a Phase Template</div>
+          <div class="dialog-sub">Multiple templates available for <strong>Lease</strong>. Choose one to apply.</div>
+          <div class="template-cards">
+            <div class="template-card selected">
+              <div class="template-card-name">Standard Lease Template <span class="template-default">(Default)</span></div>
+              <div class="phase-pills">
+                <span class="phase-pill" style="font-size:10px">LOI</span><span class="phase-arrow">→</span>
+                <span class="phase-pill" style="font-size:10px">Negotiation</span><span class="phase-arrow">→</span>
+                <span class="phase-pill" style="font-size:10px">Due Diligence</span><span class="phase-arrow">→</span>
+                <span class="phase-pill" style="font-size:10px">Closing</span>
+              </div>
+            </div>
+            <div class="template-card">
+              <div class="template-card-name">Express Lease Template</div>
+              <div class="phase-pills">
+                <span class="phase-pill" style="font-size:10px">Negotiation</span><span class="phase-arrow">→</span>
+                <span class="phase-pill" style="font-size:10px">Execution</span><span class="phase-arrow">→</span>
+                <span class="phase-pill" style="font-size:10px">Closing</span>
+              </div>
+            </div>
+            <div class="template-card">
+              <div class="template-card-name">Enterprise Lease Template</div>
+              <div class="phase-pills">
+                <span class="phase-pill" style="font-size:10px">Discovery</span><span class="phase-arrow">→</span>
+                <span class="phase-pill" style="font-size:10px">LOI</span><span class="phase-arrow">→</span>
+                <span class="phase-pill" style="font-size:10px">Negotiation</span><span class="phase-arrow">→</span>
+                <span class="phase-pill" style="font-size:10px">...</span>
+              </div>
+            </div>
+          </div>
+          <div class="warning-bar">⚠️ Current phase progress will be reset.</div>
+          <div class="dialog-actions">
+            <button class="btn btn-link">Cancel</button>
+            <button class="btn btn-ghost">Keep Current Phases</button>
+            <button class="btn btn-primary">Apply Selected</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S3: Toast only -->
+    <div id="state-s3" style="display:none;">
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px 20px; max-width:520px; box-shadow:var(--shadow-sm);">
+        <div style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">Same template → instant change, no dialog.</div>
+        <div class="table-wrap" style="margin-bottom:0;">
+          <div class="table-row" style="background:rgba(16,185,129,.06);">
+            <div class="col" style="font-weight:600">Downtown Office Deal</div>
+            <div class="col"><span class="badge purple">Lease ✓</span></div>
+            <div class="col">Acme Corp</div>
+            <div class="col">Negotiation</div>
+          </div>
+        </div>
+      </div>
+      <div class="toast">
+        <div class="toast-check">✓</div>
+        Transaction type updated to <strong style="margin-left:4px">Lease</strong>
+      </div>
+    </div>
+
+    <!-- Lease Review banner variant -->
+    <div id="state-lr" style="display:none;">
+      <div class="overlay">
+        <div class="dialog">
+          <div class="banner-warn">⚠️ Completing review. Selecting a type assigns a phase template to move forward.</div>
+          <div class="dialog-title">Change type to Lease?</div>
+          <div class="dialog-sub">Changing from <strong>Lease Review</strong> will assign a new workflow.</div>
+          <div class="phase-preview">
+            <div class="phase-preview-label">Standard Lease Template · 5 phases</div>
+            <div class="phase-pills">
+              <span class="phase-pill">LOI</span><span class="phase-arrow">→</span>
+              <span class="phase-pill">Negotiation</span><span class="phase-arrow">→</span>
+              <span class="phase-pill">Due Diligence</span><span class="phase-arrow">→</span>
+              <span class="phase-pill">Execution</span><span class="phase-arrow">→</span>
+              <span class="phase-pill">Closing</span>
+            </div>
+          </div>
+          <div class="dialog-actions">
+            <button class="btn btn-link">Cancel</button>
+            <button class="btn btn-ghost">Keep Current Phases</button>
+            <button class="btn btn-primary">Apply Template</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation">
+      ❓ <strong>Open Questions:</strong><br>
+      • Mini phase pills — how many before truncating with "..."?<br>
+      • Row highlight animation style after type change?<br>
+      • Badge color for each type: Purchase / Sale / Lease / Refinance?
+    </div>
+  </div>
+</div>
+<script>
+function show(state, el) {
+  ['s1','s2','s3','lr'].forEach(s => { const n = document.getElementById('state-'+s); if(n) n.style.display='none'; });
+  document.getElementById('state-'+state).style.display='block';
+  document.querySelectorAll('.state-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>

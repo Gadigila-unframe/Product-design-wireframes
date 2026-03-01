@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<title>DES-126 — Add New Transaction Pop-up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ── Unframe Design Tokens ── */
+  :root {
+    --bg:            #F4F5F7;
+    --surface:       #FFFFFF;
+    --border:        #E2E4E9;
+    --border-light:  #F0F1F5;
+    --text-primary:  #0F172A;
+    --text-secondary:#64748B;
+    --text-muted:    #94A3B8;
+    --accent:        #7849FF;
+    --accent-light:  #F3EEFF;
+    --accent-hover:  #6636F0;
+    --success:       #10B981;
+    --success-bg:    #ECFDF5;
+    --warning-bg:    #FFFBEB;
+    --warning-border:#FDE68A;
+    --danger:        #EF4444;
+    --radius-xs:     6px;
+    --radius-sm:     8px;
+    --radius:        12px;
+    --shadow-sm:     0 1px 3px rgba(15,23,42,.06), 0 1px 2px rgba(15,23,42,.04);
+    --shadow-md:     0 4px 12px rgba(15,23,42,.08);
+    --shadow-xl:     0 20px 60px rgba(15,23,42,.18), 0 8px 24px rgba(15,23,42,.10);
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg); color: var(--text-primary);
+    font-size: 13px; line-height: 1.5; height: 100vh;
+    display: flex; flex-direction: column;
+  }
+
+  /* ── Dev state bar ── */
+  .state-bar {
+    position: fixed; top: 0; left: 0; right: 0;
+    background: #1a1a2e; z-index: 200;
+    padding: 7px 16px; display: flex; align-items: center; gap: 12px;
+  }
+  .state-bar-label { color: rgba(255,255,255,.45); font-size: 11px; white-space: nowrap; }
+  .state-tabs { display: flex; border: 1px solid #333; border-radius: 5px; overflow: hidden; }
+  .state-tab { padding: 5px 12px; font-size: 11px; color: #888; cursor: pointer; background: #252540; border-right: 1px solid #333; }
+  .state-tab:last-child { border-right: none; }
+  .state-tab.active { background: var(--accent); color: #fff; }
+  .state-bar a { color: #888; font-size: 11px; margin-left: auto; text-decoration: none; }
+
+  .spacer { height: 38px; }
+  .app { display: flex; height: calc(100vh - 38px); }
+
+  /* Sidebar */
+  .sidebar { width: 56px; background: var(--surface); border-right: 1px solid var(--border); flex-shrink: 0; display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 8px; }
+  .sidebar-icon { width: 32px; height: 32px; border-radius: 8px; background: var(--border-light); }
+  .sidebar-icon.active { background: var(--accent-light); }
+
+  /* Main */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  .page-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; height: 52px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .page-title { font-size: 15px; font-weight: 600; }
+  .page-actions { margin-left: auto; display: flex; gap: 8px; }
+  .page-body { flex: 1; padding: 20px 24px; overflow: auto; }
+
+  /* Table */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }
+  .table-row { display: grid; grid-template-columns: 2fr 1.2fr 1.2fr 1fr 1fr; padding: 10px 16px; border-bottom: 1px solid var(--border-light); align-items: center; gap: 12px; }
+  .table-row.header { background: var(--bg); }
+  .col-label { font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); letter-spacing: .04em; }
+  .badge { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; background: var(--border-light); color: var(--text-secondary); }
+  .badge.purple { background: var(--accent-light); color: var(--accent); }
+  .badge.green  { background: var(--success-bg); color: var(--success); }
+  .badge.amber  { background: var(--warning-bg); color: #92400E; }
+
+  /* Modal */
+  .overlay { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(2px); }
+  .modal { background: var(--surface); border-radius: var(--radius); width: 520px; box-shadow: var(--shadow-xl); border: 1px solid var(--border); display: flex; flex-direction: column; max-height: 90vh; overflow: hidden; }
+  .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; }
+  .modal-title { font-size: 15px; font-weight: 600; flex: 1; }
+  .modal-close { width: 28px; height: 28px; border-radius: 6px; background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 16px; display: flex; align-items: center; justify-content: center; }
+  .modal-close:hover { background: var(--bg); }
+  .modal-body { padding: 20px 24px; overflow: auto; flex: 1; display: flex; flex-direction: column; gap: 20px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; background: var(--bg); }
+
+  /* Form */
+  .section-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); padding-bottom: 8px; border-bottom: 1px solid var(--border-light); }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-label { font-size: 12px; font-weight: 500; }
+  .form-label .req { color: var(--danger); margin-left: 2px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .input { height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; font-family: inherit; color: var(--text-primary); background: var(--surface); outline: none; transition: border-color .15s; width: 100%; }
+  .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(120,73,255,.1); }
+  .input::placeholder { color: var(--text-muted); }
+  .input.disabled { background: var(--bg); color: var(--text-muted); }
+
+  /* Lease sections */
+  .lease-box { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+  .lease-box-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
+  .lease-hint { font-size: 12px; color: var(--text-muted); }
+
+  /* Search results */
+  .search-results { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; box-shadow: var(--shadow-md); }
+  .result-item { padding: 9px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-light); }
+  .result-item:last-child { border-bottom: none; }
+  .result-item:hover { background: var(--accent-light); }
+  .result-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .result-name { font-size: 12px; font-weight: 500; }
+  .result-meta-right { font-size: 11px; color: var(--text-muted); margin-left: auto; }
+
+  /* Lease card */
+  .lease-card { background: var(--surface); border: 1.5px solid var(--accent); border-radius: var(--radius-sm); padding: 10px 12px; display: flex; align-items: center; gap: 10px; }
+  .lease-card-icon { width: 32px; height: 32px; border-radius: 6px; background: var(--accent-light); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+  .lease-card-name { font-size: 13px; font-weight: 500; }
+  .lease-card-meta { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+  .unlink-btn { margin-left: auto; padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); font-size: 11px; color: var(--text-secondary); cursor: pointer; }
+  .unlink-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+  /* Phase pills */
+  .phase-pills { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+  .phase-pill { padding: 3px 10px; border-radius: 20px; background: var(--border-light); color: var(--text-secondary); font-size: 11px; font-weight: 500; }
+  .phase-arrow { color: var(--text-muted); font-size: 10px; }
+
+  /* Context note */
+  .context-note { background: var(--accent-light); border: 1px solid #C4B5FD; border-radius: 6px; padding: 9px 12px; font-size: 12px; color: var(--accent); }
+
+  /* Buttons */
+  .btn { height: 36px; padding: 0 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; transition: all .15s; font-family: inherit; white-space: nowrap; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-primary:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; }
+  .btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--bg); }
+  .btn-link { background: transparent; color: var(--text-secondary); border: none; }
+
+  .annotation { background: var(--warning-bg); border: 1px solid var(--warning-border); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 11px; color: #92400E; }
+</style>
+</head>
+<body>
+
+<div class="state-bar">
+  <span class="state-bar-label">DES-126 — New Transaction Modal</span>
+  <div class="state-tabs">
+    <div class="state-tab active" onclick="show('default',   this)">Default</div>
+    <div class="state-tab"        onclick="show('searching', this)">Searching</div>
+    <div class="state-tab"        onclick="show('linked',    this)">Lease Linked</div>
+    <div class="state-tab"        onclick="show('property',  this)">From Property</div>
+  </div>
+  <a href="https://linear.app/unframe/issue/DES-126" target="_blank">↗ DES-126</a>
+</div>
+<div class="spacer"></div>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-icon active"></div>
+    <div class="sidebar-icon"></div>
+    <div class="sidebar-icon"></div>
+  </div>
+  <div class="main">
+    <div class="page-header">
+      <div class="page-title">Transactions</div>
+      <div class="page-actions">
+        <button class="btn btn-ghost">Import</button>
+        <button class="btn btn-primary">+ New Transaction</button>
+      </div>
+    </div>
+    <div class="page-body">
+      <div class="table-wrap">
+        <div class="table-row header">
+          <div class="col-label">Name</div><div class="col-label">Type</div>
+          <div class="col-label">Client</div><div class="col-label">Phase</div><div class="col-label">Status</div>
+        </div>
+        <div class="table-row">
+          <div style="font-weight:500">Downtown Office Deal</div>
+          <div><span class="badge amber">Lease Review</span></div>
+          <div>Acme Corp</div><div>Negotiation</div>
+          <div><span class="badge green">Active</span></div>
+        </div>
+        <div class="table-row">
+          <div>Westside Retail</div>
+          <div><span class="badge purple">Sale</span></div>
+          <div>RetailCo</div><div>LOI</div>
+          <div><span class="badge">Active</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal overlay -->
+<div class="overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">New Transaction</div>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Basic info (all states) -->
+      <div>
+        <div class="section-label">Basic Info</div>
+        <div style="margin-top:12px; display:flex; flex-direction:column; gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Transaction Name <span class="req">*</span></label>
+            <input class="input" placeholder="e.g. Downtown Office Lease">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Client</label>
+              <input class="input" placeholder="Search clients...">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Broker</label>
+              <input class="input" placeholder="Assign broker">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lease section: DEFAULT -->
+      <div id="state-default">
+        <div class="section-label">Connected Lease <span style="font-weight:400; text-transform:none; letter-spacing:0; color:var(--text-muted); font-size:10px;">(optional)</span></div>
+        <div class="lease-box">
+          <div class="lease-box-title">🔗 Connect to a Lease</div>
+          <div class="lease-hint">Link this transaction to an existing lease for automatic tracking and reporting.</div>
+          <button class="btn btn-ghost" style="width:fit-content; font-size:12px; height:32px;">+ Search & Connect Lease</button>
+        </div>
+      </div>
+
+      <!-- Lease section: SEARCHING -->
+      <div id="state-searching" style="display:none;">
+        <div class="section-label">Connected Lease</div>
+        <div class="lease-box" style="gap:8px;">
+          <div class="lease-box-title">🔍 Search Leases</div>
+          <input class="input" placeholder="Type lease name, property or tenant..." value="Down" style="background:var(--surface);">
+          <div class="search-results">
+            <div class="result-item">
+              <div class="result-dot"></div>
+              <div>
+                <div class="result-name">Downtown Office — Floor 12</div>
+                <div style="font-size:11px; color:var(--text-muted);">Acme Corp · Expires Dec 2027</div>
+              </div>
+              <div class="result-meta-right">Active</div>
+            </div>
+            <div class="result-item">
+              <div class="result-dot" style="background:var(--text-muted);"></div>
+              <div>
+                <div class="result-name">Downtown Retail Suite A</div>
+                <div style="font-size:11px; color:var(--text-muted);">RetailCo · Expires Mar 2026</div>
+              </div>
+              <div class="result-meta-right">Expiring</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lease section: LINKED -->
+      <div id="state-linked" style="display:none;">
+        <div class="section-label">Connected Lease</div>
+        <div class="lease-box">
+          <div class="lease-box-title" style="color:var(--success);">✓ Lease Connected</div>
+          <div class="lease-card">
+            <div class="lease-card-icon">🏢</div>
+            <div>
+              <div class="lease-card-name">Downtown Office — Floor 12</div>
+              <div class="lease-card-meta">Acme Corp · Active · Expires Dec 2027</div>
+            </div>
+            <button class="unlink-btn">Unlink</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- FROM PROPERTY context -->
+      <div id="state-property" style="display:none;">
+        <div class="context-note">
+          📍 Opened from <strong>Downtown Office Complex</strong> — no lease section shown when context is from a property.
+        </div>
+      </div>
+
+      <!-- Type & Template (all states) -->
+      <div>
+        <div class="section-label">Type & Template</div>
+        <div style="margin-top:12px; display:flex; flex-direction:column; gap:12px;">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Transaction Type <span class="req">*</span></label>
+              <select class="input" style="appearance:none; cursor:pointer;">
+                <option>Select type...</option>
+                <option>Lease</option>
+                <option>Purchase</option>
+                <option>Sale</option>
+                <option>Refinance</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phase Template</label>
+              <input class="input disabled" value="— select type first —" readonly>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-link">Cancel</button>
+      <button class="btn btn-primary" disabled>Create Transaction</button>
+    </div>
+  </div>
+</div>
+
+<div style="max-width:540px; margin:8px auto 0; padding:0 16px;">
+  <div class="annotation">
+    ❓ <strong>Open Questions:</strong><br>
+    • What happens if user changes type after template is auto-selected?<br>
+    • How many phases show in preview before truncating?<br>
+    • Form behavior if opened from Property page vs Transactions page?
+  </div>
+</div>
+
+<script>
+function show(state, el) {
+  ['default','searching','linked','property'].forEach(s => {
+    document.getElementById('state-' + s).style.display = 'none';
+  });
+  document.getElementById('state-' + state).style.display = 'block';
+  document.querySelectorAll('.state-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>
