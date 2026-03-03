@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<title>DES-137 — Dashboard Edit Mode & Save</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#F4F5F7; --surface:#FFFFFF; --border:#E2E4E9; --border-light:#F0F1F5;
+    --text-primary:#0F172A; --text-secondary:#64748B; --text-muted:#94A3B8;
+    --accent:#7849FF; --accent-light:#F3EEFF; --accent-hover:#6636F0;
+    --success:#10B981; --success-bg:#ECFDF5;
+    --warning:#F59E0B; --warning-bg:#FFFBEB;
+    --danger:#EF4444; --danger-light:#FEF2F2;
+    --radius-sm:8px; --radius:12px;
+    --shadow-md:0 4px 16px rgba(15,23,42,.12);
+  }
+  body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text-primary); font-size:13px; line-height:1.5; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+
+  /* State Bar */
+  .state-bar { position:fixed; top:0; left:0; right:0; background:#1a1a2e; z-index:200; padding:7px 16px; display:flex; align-items:center; gap:12px; }
+  .state-bar-label { color:rgba(255,255,255,.45); font-size:11px; }
+  .state-tabs { display:flex; border:1px solid #333; border-radius:5px; overflow:hidden; }
+  .state-tab { padding:5px 12px; font-size:11px; color:#888; cursor:pointer; background:#252540; border-right:1px solid #333; }
+  .state-tab:last-child { border-right:none; }
+  .state-tab.active { background:var(--accent); color:#fff; }
+  .state-bar a { color:#888; font-size:11px; margin-left:auto; text-decoration:none; }
+
+  .shell { display:flex; height:100vh; padding-top:34px; }
+  .sidebar { width:56px; background:#0F172A; display:flex; flex-direction:column; align-items:center; padding:12px 0; gap:4px; flex-shrink:0; }
+  .nav-logo { width:32px; height:32px; background:var(--accent); border-radius:8px; display:flex; align-items:center; justify-content:center; margin-bottom:12px; }
+  .nav-logo span { color:#fff; font-weight:700; font-size:14px; }
+  .nav-icon { width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:rgba(255,255,255,.4); font-size:16px; }
+  .nav-icon.active { background:var(--accent); color:#fff; }
+  .nav-spacer { flex:1; }
+
+  .main { flex:1; display:flex; flex-direction:column; overflow:hidden; position:relative; }
+
+  /* Topbar */
+  .topbar { background:var(--surface); border-bottom:1px solid var(--border); padding:0 24px; height:52px; display:flex; align-items:center; gap:12px; flex-shrink:0; position:relative; z-index:10; }
+  .topbar-title { font-size:15px; font-weight:600; }
+  .topbar-badge { background:var(--accent-light); color:var(--accent); font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; }
+  .topbar-actions { margin-left:auto; display:flex; gap:8px; }
+  .btn { display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:var(--radius-sm); font-size:12px; font-weight:500; cursor:pointer; border:none; }
+  .btn-primary { background:var(--accent); color:#fff; }
+  .btn-secondary { background:var(--surface); color:var(--text-primary); border:1px solid var(--border); }
+  .btn-danger { background:var(--danger); color:#fff; }
+  .btn-ghost { background:transparent; color:var(--text-secondary); }
+
+  /* Edit mode bar (floats below topbar) */
+  .edit-bar { background:#0F172A; padding:10px 24px; display:flex; align-items:center; gap:12px; border-bottom:2px solid var(--accent); }
+  .edit-bar-label { color:rgba(255,255,255,.6); font-size:12px; display:flex; align-items:center; gap:6px; }
+  .edit-bar-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); animation:pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .edit-bar-hint { color:rgba(255,255,255,.4); font-size:11px; }
+  .edit-bar-spacer { flex:1; }
+
+  .canvas { flex:1; overflow-y:auto; padding:24px; }
+
+  /* Dashboard grid */
+  .dash-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+
+  /* Widget */
+  .widget { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; position:relative; }
+  .widget-header { padding:12px 16px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--border-light); }
+  .widget-icon { width:28px; height:28px; border-radius:6px; background:var(--accent-light); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+  .widget-title { font-size:13px; font-weight:600; flex:1; }
+  .widget-body { padding:14px 16px; }
+  .widget-stat { font-size:22px; font-weight:700; }
+  .widget-sub { font-size:11px; color:var(--text-muted); margin-top:2px; }
+
+  /* Edit mode overlays on widget */
+  .edit-handle { position:absolute; top:0; left:0; right:0; bottom:0; border:2px solid var(--accent); border-radius:var(--radius); pointer-events:none; opacity:0; transition:opacity .15s; }
+  .widget.editable:hover .edit-handle { opacity:1; }
+  .widget.dragging .edit-handle { opacity:1; background:rgba(120,73,255,.05); }
+  .drag-grip { position:absolute; top:8px; left:50%; transform:translateX(-50%); color:var(--text-muted); cursor:grab; font-size:16px; display:none; background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:1px 6px; }
+  .widget.editable:hover .drag-grip { display:block; }
+  .remove-btn { position:absolute; top:-8px; right:-8px; width:22px; height:22px; border-radius:50%; background:var(--danger); color:#fff; font-size:12px; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.2); z-index:5; }
+  .widget.editable:hover .remove-btn { display:flex; }
+
+  /* Drop zone placeholder */
+  .drop-zone { border:2px dashed var(--accent); border-radius:var(--radius); background:var(--accent-light); display:flex; align-items:center; justify-content:center; min-height:100px; color:var(--accent); font-size:12px; font-weight:500; }
+
+  /* Table mini */
+  .mini-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .mini-table th { padding:7px 12px; text-align:left; font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--border); background:var(--bg); }
+  .mini-table td { padding:8px 12px; border-bottom:1px solid var(--border-light); }
+  .mini-table tr:last-child td { border-bottom:none; }
+  .cell-link { color:var(--accent); font-weight:500; }
+  .cell-muted { color:var(--text-muted); }
+  .status-pill { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:500; }
+  .status-active { background:var(--success-bg); color:var(--success); }
+  .dot { width:6px; height:6px; border-radius:50%; background:currentColor; display:inline-block; }
+
+  /* State panels */
+  .state-panel { display:none; flex:1; flex-direction:column; overflow:hidden; }
+  .state-panel.active { display:flex; }
+
+  /* Confirm dialog */
+  .modal-overlay { position:absolute; inset:0; background:rgba(15,23,42,.4); display:flex; align-items:center; justify-content:center; z-index:100; }
+  .modal { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow-md); width:400px; overflow:hidden; }
+  .modal-header { padding:20px 24px 12px; }
+  .modal-title { font-size:15px; font-weight:600; margin-bottom:6px; }
+  .modal-desc { font-size:13px; color:var(--text-secondary); line-height:1.5; }
+  .modal-footer { padding:14px 24px 20px; display:flex; justify-content:flex-end; gap:8px; }
+
+  /* Open questions */
+  .open-q { background:var(--warning-bg); border:1px solid #FDE68A; border-radius:var(--radius-sm); padding:12px 14px; margin-top:16px; }
+  .open-q-title { font-size:11px; font-weight:700; color:var(--warning); margin-bottom:6px; text-transform:uppercase; letter-spacing:.04em; }
+  .open-q li { font-size:12px; color:var(--text-secondary); margin-left:14px; margin-bottom:3px; }
+</style>
+</head>
+<body>
+
+<div class="state-bar">
+  <span class="state-bar-label">DES-137</span>
+  <div class="state-tabs">
+    <div class="state-tab active" onclick="showState('view-mode')">View Mode</div>
+    <div class="state-tab" onclick="showState('edit-mode')">Edit Mode</div>
+    <div class="state-tab" onclick="showState('dragging')">Dragging Widget</div>
+    <div class="state-tab" onclick="showState('discard-confirm')">Discard Confirm</div>
+  </div>
+  <a href="https://linear.app/unframe/issue/DES-137" target="_blank">↗ DES-137</a>
+</div>
+
+<div class="shell">
+  <nav class="sidebar">
+    <div class="nav-logo"><span>U</span></div>
+    <div class="nav-icon">⊞</div>
+    <div class="nav-icon active">▦</div>
+    <div class="nav-icon">⊜</div>
+    <div class="nav-spacer"></div>
+    <div class="nav-icon">⚙</div>
+  </nav>
+
+  <div class="main">
+
+    <!-- ══ VIEW MODE ══ -->
+    <div id="state-view-mode" class="state-panel active">
+      <div class="topbar">
+        <div class="topbar-title">Transactions Dashboard</div>
+        <div class="topbar-badge">Dashboard V4</div>
+        <div class="topbar-actions">
+          <button class="btn btn-secondary" onclick="showState('edit-mode')">✎ Edit Dashboard</button>
+          <button class="btn btn-ghost">⊞ Add Widget</button>
+        </div>
+      </div>
+      <div class="canvas">
+        <div class="dash-grid">
+          <div class="widget">
+            <div class="widget-header"><div class="widget-icon">💰</div><div class="widget-title">Total Revenue</div></div>
+            <div class="widget-body"><div class="widget-stat">$2,847,320</div><div class="widget-sub">↑ 12.4% vs last month</div></div>
+          </div>
+          <div class="widget">
+            <div class="widget-header"><div class="widget-icon">📋</div><div class="widget-title">Active Leases</div></div>
+            <div class="widget-body"><div class="widget-stat">148</div><div class="widget-sub">6 expiring this week</div></div>
+          </div>
+          <div class="widget">
+            <div class="widget-header"><div class="widget-icon">🏢</div><div class="widget-title">Occupancy</div></div>
+            <div class="widget-body"><div class="widget-stat">94.2%</div><div class="widget-sub">+1.8% vs last quarter</div></div>
+          </div>
+        </div>
+        <div style="margin-top:16px;" class="widget">
+          <div class="widget-header"><div class="widget-icon">💳</div><div class="widget-title" style="flex:1;">Transactions</div></div>
+          <table class="mini-table">
+            <thead><tr><th>ID</th><th>Tenant</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td class="cell-link">TXN-8821</td><td>Acme Corp</td><td>$18,400</td><td><span class="status-pill status-active"><span class="dot"></span>Paid</span></td></tr>
+              <tr><td class="cell-link">TXN-8820</td><td>Blue Sky Ltd</td><td>$9,200</td><td><span class="status-pill" style="background:var(--warning-bg);color:var(--warning);"><span class="dot"></span>Pending</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ EDIT MODE ══ -->
+    <div id="state-edit-mode" class="state-panel">
+      <div class="topbar">
+        <div class="topbar-title">Transactions Dashboard</div>
+        <div class="topbar-badge">Dashboard V4</div>
+        <div class="topbar-actions">
+          <button class="btn btn-ghost" onclick="showState('discard-confirm')" style="color:var(--danger);">Discard</button>
+          <button class="btn btn-primary" onclick="showState('view-mode')">Save Dashboard</button>
+        </div>
+      </div>
+      <!-- Edit mode indicator bar -->
+      <div class="edit-bar">
+        <div class="edit-bar-label"><div class="edit-bar-dot"></div> Editing dashboard</div>
+        <div class="edit-bar-hint">Drag to rearrange · Hover widgets to remove</div>
+        <div class="edit-bar-spacer"></div>
+        <button class="btn btn-ghost" style="color:rgba(255,255,255,.5);font-size:12px;" onclick="showState('view-mode')">✕ Cancel</button>
+      </div>
+      <div class="canvas">
+        <div class="dash-grid">
+          <div class="widget editable">
+            <div class="edit-handle"></div>
+            <div class="drag-grip">⠿</div>
+            <div class="remove-btn">✕</div>
+            <div class="widget-header"><div class="widget-icon">💰</div><div class="widget-title">Total Revenue</div></div>
+            <div class="widget-body"><div class="widget-stat">$2,847,320</div><div class="widget-sub">↑ 12.4% vs last month</div></div>
+          </div>
+          <div class="widget editable">
+            <div class="edit-handle"></div>
+            <div class="drag-grip">⠿</div>
+            <div class="remove-btn">✕</div>
+            <div class="widget-header"><div class="widget-icon">📋</div><div class="widget-title">Active Leases</div></div>
+            <div class="widget-body"><div class="widget-stat">148</div><div class="widget-sub">6 expiring this week</div></div>
+          </div>
+          <div class="widget editable">
+            <div class="edit-handle"></div>
+            <div class="drag-grip">⠿</div>
+            <div class="remove-btn">✕</div>
+            <div class="widget-header"><div class="widget-icon">🏢</div><div class="widget-title">Occupancy</div></div>
+            <div class="widget-body"><div class="widget-stat">94.2%</div><div class="widget-sub">+1.8% vs last quarter</div></div>
+          </div>
+        </div>
+        <div style="margin-top:16px;" class="widget editable">
+          <div class="edit-handle"></div>
+          <div class="drag-grip">⠿</div>
+          <div class="remove-btn">✕</div>
+          <div class="widget-header"><div class="widget-icon">💳</div><div class="widget-title" style="flex:1;">Transactions</div></div>
+          <table class="mini-table">
+            <thead><tr><th>ID</th><th>Tenant</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td class="cell-link">TXN-8821</td><td>Acme Corp</td><td>$18,400</td><td><span class="status-pill status-active"><span class="dot"></span>Paid</span></td></tr>
+              <tr><td class="cell-link">TXN-8820</td><td>Blue Sky Ltd</td><td>$9,200</td><td><span class="status-pill" style="background:var(--warning-bg);color:var(--warning);"><span class="dot"></span>Pending</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="open-q" style="margin-top:16px;">
+          <div class="open-q-title">⚠ Open Questions</div>
+          <ul>
+            <li>Does widget resizing (width/height) happen in edit mode too, or only repositioning?</li>
+            <li>Is there auto-save / draft state, or strictly explicit Save only?</li>
+            <li>Should removed widgets be recoverable, or permanently gone?</li>
+            <li>Is Cmd+Z undo supported within an edit session?</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ DRAGGING ══ -->
+    <div id="state-dragging" class="state-panel">
+      <div class="topbar">
+        <div class="topbar-title">Transactions Dashboard</div>
+        <div class="topbar-badge">Dashboard V4</div>
+        <div class="topbar-actions">
+          <button class="btn btn-ghost" style="color:var(--danger);">Discard</button>
+          <button class="btn btn-primary">Save Dashboard</button>
+        </div>
+      </div>
+      <div class="edit-bar">
+        <div class="edit-bar-label"><div class="edit-bar-dot"></div> Editing dashboard</div>
+        <div class="edit-bar-hint">Drag to rearrange · Hover widgets to remove</div>
+        <div class="edit-bar-spacer"></div>
+      </div>
+      <div class="canvas">
+        <div class="dash-grid">
+          <!-- Widget being dragged (shown floating / highlighted) -->
+          <div class="widget dragging" style="opacity:.5;border:2px dashed var(--accent);">
+            <div class="edit-handle" style="opacity:1;"></div>
+            <div class="drag-grip" style="display:block;">⠿</div>
+            <div class="widget-header"><div class="widget-icon">📋</div><div class="widget-title">Active Leases</div></div>
+            <div class="widget-body"><div class="widget-stat">148</div></div>
+          </div>
+          <!-- Drop zone where widget will land -->
+          <div class="drop-zone">Drop here</div>
+          <div class="widget editable">
+            <div class="edit-handle"></div>
+            <div class="drag-grip">⠿</div>
+            <div class="remove-btn">✕</div>
+            <div class="widget-header"><div class="widget-icon">🏢</div><div class="widget-title">Occupancy</div></div>
+            <div class="widget-body"><div class="widget-stat">94.2%</div></div>
+          </div>
+        </div>
+        <div style="margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+          <div class="widget editable" style="grid-column:1/4;">
+            <div class="edit-handle"></div>
+            <div class="drag-grip">⠿</div>
+            <div class="remove-btn">✕</div>
+            <div class="widget-header"><div class="widget-icon">💰</div><div class="widget-title">Total Revenue</div></div>
+            <div class="widget-body"><div class="widget-stat">$2,847,320</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ DISCARD CONFIRM ══ -->
+    <div id="state-discard-confirm" class="state-panel">
+      <div class="topbar">
+        <div class="topbar-title">Transactions Dashboard</div>
+        <div class="topbar-badge">Dashboard V4</div>
+        <div class="topbar-actions">
+          <button class="btn btn-ghost" style="color:var(--danger);">Discard</button>
+          <button class="btn btn-primary">Save Dashboard</button>
+        </div>
+      </div>
+      <div class="edit-bar">
+        <div class="edit-bar-label"><div class="edit-bar-dot"></div> Editing dashboard</div>
+        <div class="edit-bar-spacer"></div>
+      </div>
+      <div style="flex:1;position:relative;overflow:hidden;">
+        <div class="canvas" style="filter:blur(2px);opacity:.4;pointer-events:none;">
+          <div class="dash-grid">
+            <div class="widget editable" style="min-height:90px;"></div>
+            <div class="widget editable" style="min-height:90px;"></div>
+            <div class="widget editable" style="min-height:90px;"></div>
+          </div>
+        </div>
+        <div class="modal-overlay">
+          <div class="modal">
+            <div class="modal-header">
+              <div class="modal-title">Discard changes?</div>
+              <div class="modal-desc">You have unsaved changes to this dashboard. Discarding will revert the layout to its last saved state.</div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="showState('edit-mode')">Keep Editing</button>
+              <button class="btn btn-secondary" onclick="showState('view-mode')" style="color:var(--danger);border-color:var(--danger);">Discard Changes</button>
+              <button class="btn btn-primary" onclick="showState('view-mode')">Save & Exit</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function showState(s) {
+  document.querySelectorAll('.state-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.state-tab').forEach(t => t.classList.remove('active'));
+  const map = {'view-mode':0,'edit-mode':1,'dragging':2,'discard-confirm':3};
+  const tabs = document.querySelectorAll('.state-tab');
+  if (tabs[map[s]] !== undefined) tabs[map[s]].classList.add('active');
+  const panel = document.getElementById('state-' + s);
+  if (panel) panel.classList.add('active');
+}
+</script>
+</body>
+</html>

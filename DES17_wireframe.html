@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<title>DES-17 — Dashboard System Entity Component</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#F4F5F7; --surface:#FFFFFF; --border:#E2E4E9; --border-light:#F0F1F5;
+    --text-primary:#0F172A; --text-secondary:#64748B; --text-muted:#94A3B8;
+    --accent:#7849FF; --accent-light:#F3EEFF; --accent-hover:#6636F0;
+    --success:#10B981; --success-bg:#ECFDF5;
+    --warning:#F59E0B; --warning-bg:#FFFBEB;
+    --danger:#EF4444;
+    --radius-xs:4px; --radius-sm:8px; --radius:12px;
+    --shadow-sm:0 1px 3px rgba(15,23,42,.06);
+    --shadow-md:0 4px 12px rgba(15,23,42,.10);
+  }
+  body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text-primary); font-size:13px; line-height:1.5; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+
+  /* ── State Bar ── */
+  .state-bar { position:fixed; top:0; left:0; right:0; background:#1a1a2e; z-index:200; padding:7px 16px; display:flex; align-items:center; gap:12px; }
+  .state-bar-label { color:rgba(255,255,255,.45); font-size:11px; white-space:nowrap; }
+  .state-tabs { display:flex; border:1px solid #333; border-radius:5px; overflow:hidden; }
+  .state-tab { padding:5px 12px; font-size:11px; color:#888; cursor:pointer; background:#252540; border-right:1px solid #333; transition:all .15s; }
+  .state-tab:last-child { border-right:none; }
+  .state-tab.active { background:var(--accent); color:#fff; }
+  .state-bar a { color:#888; font-size:11px; margin-left:auto; text-decoration:none; }
+
+  /* ── Shell ── */
+  .shell { display:flex; height:100vh; padding-top:34px; }
+
+  /* ── Sidebar ── */
+  .sidebar { width:56px; background:#0F172A; display:flex; flex-direction:column; align-items:center; padding:12px 0; gap:4px; flex-shrink:0; }
+  .nav-logo { width:32px; height:32px; background:var(--accent); border-radius:8px; display:flex; align-items:center; justify-content:center; margin-bottom:12px; }
+  .nav-logo span { color:#fff; font-weight:700; font-size:14px; }
+  .nav-icon { width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:rgba(255,255,255,.4); font-size:16px; transition:all .15s; }
+  .nav-icon:hover { background:rgba(255,255,255,.08); color:#fff; }
+  .nav-icon.active { background:var(--accent); color:#fff; }
+  .nav-spacer { flex:1; }
+
+  /* ── Main ── */
+  .main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+
+  /* ── Topbar ── */
+  .topbar { background:var(--surface); border-bottom:1px solid var(--border); padding:0 24px; height:52px; display:flex; align-items:center; gap:12px; flex-shrink:0; }
+  .topbar-title { font-size:15px; font-weight:600; color:var(--text-primary); }
+  .topbar-badge { background:var(--accent-light); color:var(--accent); font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; }
+  .topbar-actions { margin-left:auto; display:flex; gap:8px; }
+  .btn { display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:var(--radius-sm); font-size:12px; font-weight:500; cursor:pointer; border:none; transition:all .15s; }
+  .btn-primary { background:var(--accent); color:#fff; }
+  .btn-primary:hover { background:var(--accent-hover); }
+  .btn-secondary { background:var(--surface); color:var(--text-primary); border:1px solid var(--border); }
+  .btn-secondary:hover { background:var(--bg); }
+  .btn-ghost { background:transparent; color:var(--text-secondary); padding:6px 8px; }
+  .btn-ghost:hover { background:var(--bg); color:var(--text-primary); }
+  .icon-btn { width:32px; height:32px; border-radius:6px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1px solid var(--border); background:var(--surface); color:var(--text-secondary); font-size:14px; }
+  .icon-btn:hover { background:var(--bg); color:var(--text-primary); }
+
+  /* ── Dashboard Canvas ── */
+  .canvas { flex:1; overflow-y:auto; padding:24px; display:flex; flex-direction:column; gap:16px; }
+
+  /* ── Dashboard Grid ── */
+  .dash-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .dash-grid.span-2 { grid-template-columns:2fr 1fr; }
+
+  /* ── Widget Card ── */
+  .widget { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; display:flex; flex-direction:column; }
+  .widget-header { padding:14px 16px 12px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--border-light); flex-shrink:0; }
+  .widget-icon { width:28px; height:28px; border-radius:6px; background:var(--accent-light); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+  .widget-title { font-size:13px; font-weight:600; color:var(--text-primary); flex:1; }
+  .widget-subtitle { font-size:11px; color:var(--text-muted); }
+  .widget-actions { display:flex; gap:4px; }
+  .segmented { display:flex; background:var(--bg); border-radius:6px; padding:2px; border:1px solid var(--border); }
+  .seg-btn { padding:3px 10px; border-radius:4px; font-size:11px; font-weight:500; cursor:pointer; color:var(--text-secondary); border:none; background:transparent; transition:all .15s; }
+  .seg-btn.active { background:var(--surface); color:var(--text-primary); box-shadow:0 1px 3px rgba(0,0,0,.1); }
+  .widget-body { flex:1; overflow:hidden; }
+  .widget-footer { padding:10px 16px; border-top:1px solid var(--border-light); display:flex; align-items:center; justify-content:space-between; background:var(--bg); }
+  .widget-footer-text { font-size:11px; color:var(--text-muted); }
+
+  /* ── Table inside widget ── */
+  .mini-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .mini-table th { padding:8px 12px; text-align:left; font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--border); background:var(--bg); white-space:nowrap; }
+  .mini-table td { padding:9px 12px; border-bottom:1px solid var(--border-light); color:var(--text-primary); vertical-align:middle; }
+  .mini-table tr:last-child td { border-bottom:none; }
+  .mini-table tr:hover td { background:rgba(120,73,255,.03); }
+  .cell-link { color:var(--accent); font-weight:500; cursor:pointer; text-decoration:none; }
+  .cell-link:hover { text-decoration:underline; }
+  .status-pill { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:500; }
+  .status-active { background:var(--success-bg); color:var(--success); }
+  .status-pending { background:var(--warning-bg); color:var(--warning); }
+  .status-expired { background:#FEF2F2; color:var(--danger); }
+  .cell-muted { color:var(--text-muted); }
+
+  /* ── Card Grid (card view) ── */
+  .card-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; padding:14px; }
+  .entity-card { border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; background:var(--surface); cursor:pointer; transition:all .15s; }
+  .entity-card:hover { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-light); }
+  .entity-card-name { font-size:12px; font-weight:600; color:var(--text-primary); margin-bottom:8px; }
+  .entity-card-fields { display:flex; flex-direction:column; gap:4px; }
+  .entity-field { display:flex; justify-content:space-between; }
+  .entity-field-label { font-size:11px; color:var(--text-muted); }
+  .entity-field-value { font-size:11px; color:var(--text-primary); font-weight:500; }
+
+  /* ── Add Card Widget ── */
+  .add-widget { background:var(--surface); border:2px dashed var(--border); border-radius:var(--radius); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; cursor:pointer; min-height:180px; transition:all .15s; }
+  .add-widget:hover { border-color:var(--accent); background:var(--accent-light); }
+  .add-widget-icon { width:36px; height:36px; border-radius:50%; background:var(--bg); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--text-muted); }
+  .add-widget-label { font-size:12px; color:var(--text-secondary); font-weight:500; }
+
+  /* ── States ── */
+  .state-panel { display:none; }
+  .state-panel.active { display:flex; flex-direction:column; flex:1; }
+
+  /* ── Skeleton ── */
+  .skel { background:linear-gradient(90deg,#F0F1F5 25%,#E8E9EE 50%,#F0F1F5 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:4px; }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  .skel-row { display:flex; gap:12px; padding:10px 12px; border-bottom:1px solid var(--border-light); }
+  .skel-cell { height:12px; border-radius:4px; }
+
+  /* ── Empty State ── */
+  .empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:40px 24px; text-align:center; flex:1; }
+  .empty-icon { width:48px; height:48px; border-radius:12px; background:var(--bg); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:22px; }
+  .empty-title { font-size:13px; font-weight:600; color:var(--text-primary); }
+  .empty-desc { font-size:12px; color:var(--text-secondary); max-width:200px; line-height:1.5; }
+
+  /* ── Modal ── */
+  .modal-overlay { position:fixed; inset:0; background:rgba(15,23,42,.45); display:flex; align-items:center; justify-content:center; z-index:100; padding-top:34px; }
+  .modal { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow-md); width:480px; overflow:hidden; }
+  .modal-header { padding:20px 24px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .modal-title { font-size:15px; font-weight:600; }
+  .modal-close { color:var(--text-muted); cursor:pointer; font-size:18px; line-height:1; }
+  .modal-body { padding:20px 24px; display:flex; flex-direction:column; gap:14px; }
+  .modal-footer { padding:16px 24px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px; }
+  .option-card { border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px 16px; display:flex; gap:12px; cursor:pointer; transition:all .15s; }
+  .option-card:hover { border-color:var(--accent); background:var(--accent-light); }
+  .option-card.selected { border-color:var(--accent); background:var(--accent-light); box-shadow:0 0 0 3px rgba(120,73,255,.12); }
+  .option-icon { width:36px; height:36px; border-radius:8px; background:var(--bg); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+  .option-text { display:flex; flex-direction:column; gap:2px; }
+  .option-label { font-size:13px; font-weight:600; }
+  .option-desc { font-size:12px; color:var(--text-secondary); }
+  .entity-list { display:flex; flex-direction:column; gap:6px; }
+  .entity-row { padding:10px 12px; border-radius:var(--radius-sm); border:1px solid var(--border); display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13px; font-weight:500; }
+  .entity-row:hover { border-color:var(--accent); background:var(--accent-light); }
+  .entity-row.selected { border-color:var(--accent); background:var(--accent-light); }
+
+  /* ── Full Screen Edit ── */
+  .fullscreen { position:fixed; inset:0; background:var(--bg); z-index:150; display:flex; flex-direction:column; padding-top:34px; }
+  .fs-topbar { background:var(--surface); border-bottom:1px solid var(--border); padding:0 24px; height:52px; display:flex; align-items:center; gap:16px; }
+  .fs-title { font-size:14px; font-weight:600; }
+  .fs-breadcrumb { font-size:12px; color:var(--text-muted); }
+  .fs-breadcrumb span { color:var(--text-primary); font-weight:500; }
+  .fs-body { flex:1; display:flex; overflow:hidden; }
+  .fs-sidebar { width:260px; background:var(--surface); border-right:1px solid var(--border); padding:16px; display:flex; flex-direction:column; gap:16px; overflow-y:auto; }
+  .fs-content { flex:1; overflow:auto; padding:20px; }
+  .filter-section { display:flex; flex-direction:column; gap:8px; }
+  .filter-label { font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; }
+  .filter-chip { display:flex; align-items:center; gap:6px; padding:6px 10px; border-radius:6px; border:1px solid var(--border); font-size:12px; cursor:pointer; background:var(--surface); }
+  .filter-chip.active { border-color:var(--accent); background:var(--accent-light); color:var(--accent); }
+  .filter-chip-remove { color:var(--text-muted); font-size:14px; }
+  .col-row { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border-light); }
+  .col-drag { color:var(--text-muted); cursor:grab; font-size:14px; }
+  .col-name { flex:1; font-size:12px; }
+  .col-toggle { width:28px; height:16px; border-radius:8px; border:1px solid var(--border); background:var(--bg); position:relative; cursor:pointer; }
+  .col-toggle.on { background:var(--accent); border-color:var(--accent); }
+  .col-toggle::after { content:''; position:absolute; top:2px; left:2px; width:10px; height:10px; border-radius:50%; background:#fff; transition:left .15s; }
+  .col-toggle.on::after { left:14px; }
+
+  /* ── Save to Dashboard ── */
+  .save-toast { position:fixed; bottom:24px; right:24px; background:var(--text-primary); color:#fff; border-radius:var(--radius-sm); padding:12px 16px; display:flex; align-items:center; gap:12px; box-shadow:var(--shadow-md); font-size:13px; z-index:300; }
+  .toast-cta { color:var(--accent); font-weight:600; cursor:pointer; white-space:nowrap; }
+
+  /* ── Misc ── */
+  .dot { width:6px; height:6px; border-radius:50%; display:inline-block; background:currentColor; margin-right:4px; }
+  .three-dot { color:var(--text-muted); cursor:pointer; padding:0 4px; font-size:16px; line-height:1; border-radius:4px; }
+  .three-dot:hover { background:var(--bg); color:var(--text-primary); }
+  .tag { display:inline-flex; align-items:center; padding:1px 6px; border-radius:4px; font-size:10px; font-weight:600; }
+  .tag-urgent { background:#FEF2F2; color:var(--danger); }
+  .section-label { font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; }
+  .open-q { background:var(--warning-bg); border:1px solid #FDE68A; border-radius:var(--radius-sm); padding:12px 14px; margin-top:8px; }
+  .open-q-title { font-size:11px; font-weight:700; color:var(--warning); margin-bottom:6px; text-transform:uppercase; letter-spacing:.04em; }
+  .open-q li { font-size:12px; color:var(--text-secondary); margin-left:14px; margin-bottom:3px; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════ STATE BAR ══════════════════════════ -->
+<div class="state-bar">
+  <span class="state-bar-label">DES-17</span>
+  <div class="state-tabs">
+    <div class="state-tab active" onclick="showState('table-view')">Table View</div>
+    <div class="state-tab" onclick="showState('card-view')">Card View</div>
+    <div class="state-tab" onclick="showState('add-flow')">Add Widget</div>
+    <div class="state-tab" onclick="showState('save-flow')">Save from Table</div>
+    <div class="state-tab" onclick="showState('fullscreen')">Full-Screen Edit</div>
+    <div class="state-tab" onclick="showState('empty')">Empty State</div>
+  </div>
+  <a href="https://linear.app/unframe/issue/DES-17" target="_blank">↗ DES-17</a>
+</div>
+
+<!-- ══════════════════════════ SHELL ══════════════════════════ -->
+<div class="shell">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="nav-logo"><span>U</span></div>
+    <div class="nav-icon">⊞</div>
+    <div class="nav-icon active">▦</div>
+    <div class="nav-icon">⊜</div>
+    <div class="nav-icon">⋯</div>
+    <div class="nav-icon">⟳</div>
+    <div class="nav-spacer"></div>
+    <div class="nav-icon">⚙</div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-title">Transactions Dashboard</div>
+      <div class="topbar-badge">Dashboard V4</div>
+      <div class="topbar-actions">
+        <button class="btn btn-secondary">⊞ Add Widget</button>
+        <button class="btn btn-ghost">⋯</button>
+      </div>
+    </div>
+
+    <!-- ════════ STATE: TABLE VIEW ════════ -->
+    <div id="state-table-view" class="state-panel active">
+      <div class="canvas">
+        <!-- Row 1: KPI cards -->
+        <div class="dash-grid">
+          <div class="widget" style="min-height:90px;">
+            <div class="widget-header">
+              <div class="widget-icon">💰</div>
+              <div><div class="widget-title">Total Revenue</div><div class="widget-subtitle">This month</div></div>
+              <div class="three-dot">···</div>
+            </div>
+            <div class="widget-body" style="padding:12px 16px;">
+              <div style="font-size:22px;font-weight:700;color:var(--text-primary);">$2,847,320</div>
+              <div style="font-size:11px;color:var(--success);margin-top:2px;">↑ 12.4% vs last month</div>
+            </div>
+          </div>
+          <div class="widget" style="min-height:90px;">
+            <div class="widget-header">
+              <div class="widget-icon">📋</div>
+              <div><div class="widget-title">Active Leases</div><div class="widget-subtitle">All properties</div></div>
+              <div class="three-dot">···</div>
+            </div>
+            <div class="widget-body" style="padding:12px 16px;">
+              <div style="font-size:22px;font-weight:700;">148</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">6 expiring this week</div>
+            </div>
+          </div>
+          <div class="widget" style="min-height:90px;">
+            <div class="widget-header">
+              <div class="widget-icon">🏢</div>
+              <div><div class="widget-title">Occupancy Rate</div><div class="widget-subtitle">All buildings</div></div>
+              <div class="three-dot">···</div>
+            </div>
+            <div class="widget-body" style="padding:12px 16px;">
+              <div style="font-size:22px;font-weight:700;">94.2%</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">+1.8% vs last quarter</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2: Entity Table Widget (main focus) -->
+        <div class="widget">
+          <div class="widget-header">
+            <div class="widget-icon">📄</div>
+            <div style="flex:1;">
+              <div class="widget-title">Leases</div>
+              <div class="widget-subtitle">148 records · Filtered: Active only</div>
+            </div>
+            <div class="widget-actions">
+              <div class="segmented">
+                <button class="seg-btn active">⊟ Table</button>
+                <button class="seg-btn" onclick="showState('card-view')">⊞ Cards</button>
+              </div>
+              <div style="margin-left:6px;display:flex;gap:4px;">
+                <div class="icon-btn" title="Filter">⊤</div>
+                <div class="icon-btn" title="Edit widget" onclick="showState('fullscreen')">✎</div>
+                <div class="three-dot" style="padding:4px 6px;">···</div>
+              </div>
+            </div>
+          </div>
+          <div class="widget-body">
+            <table class="mini-table">
+              <thead>
+                <tr>
+                  <th>Lease Name</th>
+                  <th>Tenant</th>
+                  <th>Property</th>
+                  <th>Start Date</th>
+                  <th>End Date</th>
+                  <th>Rent / mo</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><a class="cell-link">LSE-2024-001</a></td>
+                  <td>Acme Corp</td>
+                  <td class="cell-muted">Tower A, Fl. 12</td>
+                  <td class="cell-muted">Jan 1, 2024</td>
+                  <td class="cell-muted">Dec 31, 2026</td>
+                  <td>$18,400</td>
+                  <td><span class="status-pill status-active"><span class="dot"></span>Active</span></td>
+                </tr>
+                <tr>
+                  <td><a class="cell-link">LSE-2024-042</a></td>
+                  <td>Blue Sky Ltd</td>
+                  <td class="cell-muted">Tower B, Fl. 3</td>
+                  <td class="cell-muted">Mar 15, 2024</td>
+                  <td class="cell-muted">Mar 14, 2025</td>
+                  <td>$9,200</td>
+                  <td><span class="status-pill status-pending"><span class="dot"></span>Expiring</span></td>
+                </tr>
+                <tr>
+                  <td><a class="cell-link">LSE-2023-118</a></td>
+                  <td>Vertex Systems</td>
+                  <td class="cell-muted">Park Office, Fl. 7</td>
+                  <td class="cell-muted">Jun 1, 2023</td>
+                  <td class="cell-muted">May 31, 2027</td>
+                  <td>$24,750</td>
+                  <td><span class="status-pill status-active"><span class="dot"></span>Active</span></td>
+                </tr>
+                <tr>
+                  <td><a class="cell-link">LSE-2024-089</a></td>
+                  <td>Nova Analytics</td>
+                  <td class="cell-muted">Tower A, Fl. 5</td>
+                  <td class="cell-muted">Sep 1, 2024</td>
+                  <td class="cell-muted">Aug 31, 2025</td>
+                  <td>$11,600</td>
+                  <td><span class="status-pill status-pending"><span class="dot"></span>Pending</span></td>
+                </tr>
+                <tr>
+                  <td><a class="cell-link">LSE-2022-007</a></td>
+                  <td>Crestline Inc</td>
+                  <td class="cell-muted">Tower B, Fl. 9</td>
+                  <td class="cell-muted">Feb 1, 2022</td>
+                  <td class="cell-muted">Jan 31, 2024</td>
+                  <td>$15,000</td>
+                  <td><span class="status-pill status-expired"><span class="dot"></span>Expired</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="widget-footer">
+            <span class="widget-footer-text">Showing 5 of 148 · Sorted by End Date ↑</span>
+            <a class="cell-link" style="font-size:12px;">View all leases →</a>
+          </div>
+        </div>
+
+        <!-- Open Questions -->
+        <div class="open-q">
+          <div class="open-q-title">⚠ Open Questions — needs PM input</div>
+          <ul>
+            <li>Does inline row editing work inside the widget, or only in full-screen? (flagged by nir.fogel, needs paz.kagan)</li>
+            <li>Max rows shown before pagination — what's the limit?</li>
+            <li>Full-screen edit depends on DES-13 — is that design finalized?</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ STATE: CARD VIEW ════════ -->
+    <div id="state-card-view" class="state-panel">
+      <div class="canvas">
+        <div class="widget">
+          <div class="widget-header">
+            <div class="widget-icon">📄</div>
+            <div style="flex:1;">
+              <div class="widget-title">Leases</div>
+              <div class="widget-subtitle">148 records · Card view</div>
+            </div>
+            <div class="widget-actions">
+              <div class="segmented">
+                <button class="seg-btn" onclick="showState('table-view')">⊟ Table</button>
+                <button class="seg-btn active">⊞ Cards</button>
+              </div>
+              <div style="margin-left:6px;display:flex;gap:4px;">
+                <div class="icon-btn">⊤</div>
+                <div class="icon-btn" onclick="showState('fullscreen')">✎</div>
+                <div class="three-dot" style="padding:4px 6px;">···</div>
+              </div>
+            </div>
+          </div>
+          <div class="widget-body">
+            <div class="card-grid">
+              <div class="entity-card">
+                <div class="entity-card-name">LSE-2024-001 · Acme Corp</div>
+                <div class="entity-card-fields">
+                  <div class="entity-field"><span class="entity-field-label">Property</span><span class="entity-field-value">Tower A, Fl. 12</span></div>
+                  <div class="entity-field"><span class="entity-field-label">Rent / mo</span><span class="entity-field-value">$18,400</span></div>
+                  <div class="entity-field"><span class="entity-field-label">End Date</span><span class="entity-field-value">Dec 31, 2026</span></div>
+                  <div class="entity-field"><span class="entity-field-label">Status</span><span class="entity-field-value" style="color:var(--success);">● Active</span></div>
+                </div>
+              </div>
+              <div class="entity-card">
+                <div class="entity-card-name">LSE-2024-042 · Blue Sky Ltd</div>
+                <div class="entity-card-fields">
+                  <div class="entity-field"><span class="entity-field-label">Property</span><span class="entity-field-value">Tower B, Fl. 3</span></div>
+                  <div class="entity-field"><span class="entity-field-label">Rent / mo</span><span class="entity-field-value">$9,200</span></div>
+                  <div class="entity-field"><span class="entity-field-label">End Date</span><span class="entity-field-value">Mar 14, 2025</span></div>
+                  <div class="entity-field"><span class="entity-field-label">Status</span><span class="entity-field-value" style="color:var(--warning);">● Expiring</span></div>
+                </div>
+              </div>
+              <div class="entity-card">
+                <div class="entity-card-name">LSE-2023-118 · Vertex Systems</div>
+                <div class="entity-card-fields">
+                  <div class="entity-field"><span class="entity-field-label">Property</span><span class="entity-field-value">Park Office, Fl. 7</span></div>
+                  <div class="entity-field"><span class="entity-field-label">Rent / mo</span><span class="entity-field-value">$24,750</span></div>
+                  <div class="entity-field"><span class="entity-field-label">End Date</span><span class="entity-field-value">May 31, 2027</span></div>
+                  <div class="entity-field"><span class="entity-field-label">Status</span><span class="entity-field-value" style="color:var(--success);">● Active</span></div>
+                </div>
+              </div>
+              <div class="entity-card">
+                <div class="entity-card-name">LSE-2024-089 · Nova Analytics</div>
+                <div class="entity-card-fields">
+                  <div class="entity-field"><span class="entity-field-label">Property</span><span class="entity-field-value">Tower A, Fl. 5</span></div>
+                  <div class="entity-field"><span class="entity-field-label">Rent / mo</span><span class="entity-field-value">$11,600</span></div>
+                  <div class="entity-field"><span class="entity-field-label">End Date</span><span class="entity-field-value">Aug 31, 2025</span></div>
+                  <div class="entity-field"><span class="entity-field-label">Status</span><span class="entity-field-value" style="color:var(--warning);">● Pending</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="widget-footer">
+            <span class="widget-footer-text">Showing 4 of 148</span>
+            <a class="cell-link" style="font-size:12px;">View all →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ STATE: ADD FLOW ════════ -->
+    <div id="state-add-flow" class="state-panel">
+      <div class="canvas" style="filter:blur(1px);pointer-events:none;opacity:.5;">
+        <!-- blurred background -->
+        <div class="dash-grid">
+          <div class="widget" style="height:100px;"></div>
+          <div class="widget" style="height:100px;"></div>
+          <div class="add-widget"><div class="add-widget-icon">+</div><div class="add-widget-label">Add Widget</div></div>
+        </div>
+      </div>
+      <div class="modal-overlay" style="position:absolute;">
+        <div class="modal">
+          <div class="modal-header">
+            <div class="modal-title">Add Widget</div>
+            <div class="modal-close">✕</div>
+          </div>
+          <div class="modal-body">
+            <div class="section-label" style="margin-bottom:8px;">Choose widget type</div>
+            <div class="option-card">
+              <div class="option-icon">🤖</div>
+              <div class="option-text">
+                <div class="option-label">AI Chat</div>
+                <div class="option-desc">Ask questions about your data using natural language</div>
+              </div>
+            </div>
+            <div class="option-card selected">
+              <div class="option-icon">📄</div>
+              <div class="option-text">
+                <div class="option-label">Entity Table</div>
+                <div class="option-desc">Embed a live table of leases, clients, or any entity</div>
+              </div>
+            </div>
+            <div style="margin-top:4px;">
+              <div class="section-label" style="margin-bottom:8px;">Select entity type</div>
+              <div class="entity-list">
+                <div class="entity-row selected">📋 &nbsp;Leases</div>
+                <div class="entity-row">👥 &nbsp;Clients / Tenants</div>
+                <div class="entity-row">🏢 &nbsp;Properties</div>
+                <div class="entity-row">💳 &nbsp;Transactions</div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary">Cancel</button>
+            <button class="btn btn-primary">Add to Dashboard</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ STATE: SAVE FROM TABLE ════════ -->
+    <div id="state-save-flow" class="state-panel">
+      <div class="canvas">
+        <!-- Simulating the main Leases table page -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;">
+            <div style="font-size:14px;font-weight:600;">Leases</div>
+            <div style="font-size:12px;color:var(--text-muted);">148 records</div>
+            <div style="margin-left:auto;display:flex;gap:8px;">
+              <button class="btn btn-secondary">⊤ Filter</button>
+              <button class="btn btn-secondary">⊞ Columns</button>
+              <button class="btn btn-primary" style="background:var(--accent);">📌 Save to Dashboard</button>
+            </div>
+          </div>
+          <table class="mini-table">
+            <thead>
+              <tr><th>Lease Name</th><th>Tenant</th><th>Property</th><th>Status</th><th>Rent / mo</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><a class="cell-link">LSE-2024-001</a></td><td>Acme Corp</td><td class="cell-muted">Tower A</td><td><span class="status-pill status-active"><span class="dot"></span>Active</span></td><td>$18,400</td></tr>
+              <tr><td><a class="cell-link">LSE-2024-042</a></td><td>Blue Sky Ltd</td><td class="cell-muted">Tower B</td><td><span class="status-pill status-pending"><span class="dot"></span>Expiring</span></td><td>$9,200</td></tr>
+              <tr><td><a class="cell-link">LSE-2023-118</a></td><td>Vertex Systems</td><td class="cell-muted">Park Office</td><td><span class="status-pill status-active"><span class="dot"></span>Active</span></td><td>$24,750</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Save to Dashboard dropdown -->
+        <div style="margin-top:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 0;width:260px;box-shadow:var(--shadow-md);">
+          <div style="padding:6px 12px 8px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">Save to dashboard</div>
+          <div style="padding:8px 12px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">▦ &nbsp;Transactions Dashboard</div>
+          <div style="padding:8px 12px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;background:var(--accent-light);color:var(--accent);">▦ &nbsp;Q1 Overview <span style="margin-left:auto;font-size:11px;">✓</span></div>
+          <div style="padding:8px 12px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">+ &nbsp;New dashboard</div>
+        </div>
+      </div>
+
+      <!-- Success Toast -->
+      <div class="save-toast">
+        ✓ Widget added to Q1 Overview
+        <span class="toast-cta">View Dashboard →</span>
+      </div>
+    </div>
+
+    <!-- ════════ STATE: EMPTY ════════ -->
+    <div id="state-empty" class="state-panel">
+      <div class="canvas">
+        <div class="widget">
+          <div class="widget-header">
+            <div class="widget-icon">📄</div>
+            <div style="flex:1;"><div class="widget-title">Leases</div></div>
+            <div class="widget-actions">
+              <div class="segmented">
+                <button class="seg-btn active">⊟ Table</button>
+                <button class="seg-btn">⊞ Cards</button>
+              </div>
+            </div>
+          </div>
+          <div class="widget-body">
+            <div class="empty-state">
+              <div class="empty-icon">📄</div>
+              <div class="empty-title">No leases found</div>
+              <div class="empty-desc">No leases match your current filters, or no leases have been created yet.</div>
+              <button class="btn btn-primary" style="margin-top:4px;">Go to Leases table</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- ════════ STATE: FULL-SCREEN EDIT ════════ -->
+<div id="state-fullscreen" class="state-panel" style="position:fixed;inset:0;padding-top:34px;z-index:50;display:none;flex-direction:column;">
+  <div class="fs-topbar">
+    <div style="display:flex;flex-direction:column;">
+      <div class="fs-breadcrumb">Transactions Dashboard → <span>Leases widget</span></div>
+      <div class="fs-title">Edit Entity Widget</div>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:8px;">
+      <button class="btn btn-secondary" onclick="showState('table-view')">Cancel</button>
+      <button class="btn btn-primary">Save Changes</button>
+    </div>
+  </div>
+  <div class="fs-body">
+    <!-- Config sidebar -->
+    <div class="fs-sidebar">
+      <div class="filter-section">
+        <div class="filter-label">Active Filters</div>
+        <div class="filter-chip active">Status: Active <span class="filter-chip-remove">✕</span></div>
+        <div class="filter-chip">+ Add filter</div>
+      </div>
+      <div class="filter-section">
+        <div class="filter-label">Column Visibility</div>
+        <div class="col-row"><span class="col-drag">⠿</span><span class="col-name">Lease Name</span><div class="col-toggle on"></div></div>
+        <div class="col-row"><span class="col-drag">⠿</span><span class="col-name">Tenant</span><div class="col-toggle on"></div></div>
+        <div class="col-row"><span class="col-drag">⠿</span><span class="col-name">Property</span><div class="col-toggle on"></div></div>
+        <div class="col-row"><span class="col-drag">⠿</span><span class="col-name">Start Date</span><div class="col-toggle"></div></div>
+        <div class="col-row"><span class="col-drag">⠿</span><span class="col-name">End Date</span><div class="col-toggle on"></div></div>
+        <div class="col-row"><span class="col-drag">⠿</span><span class="col-name">Rent / mo</span><div class="col-toggle on"></div></div>
+        <div class="col-row"><span class="col-drag">⠿</span><span class="col-name">Status</span><div class="col-toggle on"></div></div>
+        <div class="col-row"><span class="col-drag">⠿</span><span class="col-name">Notes</span><div class="col-toggle"></div></div>
+      </div>
+    </div>
+    <!-- Full table -->
+    <div class="fs-content">
+      <table class="mini-table" style="font-size:13px;">
+        <thead>
+          <tr><th>Lease Name</th><th>Tenant</th><th>Property</th><th>End Date</th><th>Rent / mo</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><a class="cell-link">LSE-2024-001</a></td><td>Acme Corp</td><td class="cell-muted">Tower A, Fl. 12</td><td class="cell-muted">Dec 31, 2026</td><td>$18,400</td><td><span class="status-pill status-active"><span class="dot"></span>Active</span></td></tr>
+          <tr><td><a class="cell-link">LSE-2024-042</a></td><td>Blue Sky Ltd</td><td class="cell-muted">Tower B, Fl. 3</td><td class="cell-muted">Mar 14, 2025</td><td>$9,200</td><td><span class="status-pill status-pending"><span class="dot"></span>Expiring</span></td></tr>
+          <tr><td><a class="cell-link">LSE-2023-118</a></td><td>Vertex Systems</td><td class="cell-muted">Park Office, Fl. 7</td><td class="cell-muted">May 31, 2027</td><td>$24,750</td><td><span class="status-pill status-active"><span class="dot"></span>Active</span></td></tr>
+          <tr><td><a class="cell-link">LSE-2024-089</a></td><td>Nova Analytics</td><td class="cell-muted">Tower A, Fl. 5</td><td class="cell-muted">Aug 31, 2025</td><td>$11,600</td><td><span class="status-pill status-pending"><span class="dot"></span>Pending</span></td></tr>
+          <tr><td><a class="cell-link">LSE-2022-007</a></td><td>Crestline Inc</td><td class="cell-muted">Tower B, Fl. 9</td><td class="cell-muted">Jan 31, 2024</td><td>$15,000</td><td><span class="status-pill status-expired"><span class="dot"></span>Expired</span></td></tr>
+          <tr><td><a class="cell-link">LSE-2025-003</a></td><td>Sunrise Retail</td><td class="cell-muted">Park Office, Fl. 2</td><td class="cell-muted">Jun 30, 2027</td><td>$8,900</td><td><span class="status-pill status-active"><span class="dot"></span>Active</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+function showState(s) {
+  // Hide all panels
+  document.querySelectorAll('.state-panel').forEach(p => {
+    p.classList.remove('active');
+    p.style.display = '';
+  });
+  // Update tabs
+  document.querySelectorAll('.state-tab').forEach(t => t.classList.remove('active'));
+
+  const map = {
+    'table-view':  {panelId:'state-table-view',  tabIdx:0},
+    'card-view':   {panelId:'state-card-view',    tabIdx:1},
+    'add-flow':    {panelId:'state-add-flow',     tabIdx:2},
+    'save-flow':   {panelId:'state-save-flow',    tabIdx:3},
+    'fullscreen':  {panelId:'state-fullscreen',   tabIdx:4},
+    'empty':       {panelId:'state-empty',        tabIdx:5},
+  };
+  const m = map[s];
+  if (!m) return;
+
+  const tabs = document.querySelectorAll('.state-tab');
+  if (tabs[m.tabIdx]) tabs[m.tabIdx].classList.add('active');
+
+  if (s === 'fullscreen') {
+    const fs = document.getElementById('state-fullscreen');
+    fs.style.display = 'flex';
+    fs.style.background = 'var(--bg)';
+  } else {
+    const panel = document.getElementById(m.panelId);
+    if (panel) panel.classList.add('active');
+  }
+}
+</script>
+</body>
+</html>

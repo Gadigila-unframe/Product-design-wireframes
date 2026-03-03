@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<title>DES-138 — Interactive Table Widget Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#F4F5F7; --surface:#FFFFFF; --border:#E2E4E9; --border-light:#F0F1F5;
+    --text-primary:#0F172A; --text-secondary:#64748B; --text-muted:#94A3B8;
+    --accent:#7849FF; --accent-light:#F3EEFF; --accent-hover:#6636F0;
+    --success:#10B981; --success-bg:#ECFDF5;
+    --warning:#F59E0B; --warning-bg:#FFFBEB;
+    --danger:#EF4444;
+    --radius-xs:4px; --radius-sm:8px; --radius:12px;
+    --shadow-sm:0 1px 3px rgba(15,23,42,.06);
+    --shadow-md:0 4px 16px rgba(15,23,42,.12);
+  }
+  body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text-primary); font-size:13px; line-height:1.5; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+
+  /* State Bar */
+  .state-bar { position:fixed; top:0; left:0; right:0; background:#1a1a2e; z-index:200; padding:7px 16px; display:flex; align-items:center; gap:12px; }
+  .state-bar-label { color:rgba(255,255,255,.45); font-size:11px; white-space:nowrap; }
+  .state-tabs { display:flex; border:1px solid #333; border-radius:5px; overflow:hidden; }
+  .state-tab { padding:5px 12px; font-size:11px; color:#888; cursor:pointer; background:#252540; border-right:1px solid #333; }
+  .state-tab:last-child { border-right:none; }
+  .state-tab.active { background:var(--accent); color:#fff; }
+  .state-bar a { color:#888; font-size:11px; margin-left:auto; text-decoration:none; }
+
+  /* Shell */
+  .shell { display:flex; height:100vh; padding-top:34px; }
+  .sidebar { width:56px; background:#0F172A; display:flex; flex-direction:column; align-items:center; padding:12px 0; gap:4px; flex-shrink:0; }
+  .nav-logo { width:32px; height:32px; background:var(--accent); border-radius:8px; display:flex; align-items:center; justify-content:center; margin-bottom:12px; }
+  .nav-logo span { color:#fff; font-weight:700; font-size:14px; }
+  .nav-icon { width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:rgba(255,255,255,.4); font-size:16px; }
+  .nav-icon.active { background:var(--accent); color:#fff; }
+  .nav-spacer { flex:1; }
+  .main { flex:1; display:flex; flex-direction:column; overflow:hidden; position:relative; }
+  .topbar { background:var(--surface); border-bottom:1px solid var(--border); padding:0 24px; height:52px; display:flex; align-items:center; gap:12px; flex-shrink:0; }
+  .topbar-title { font-size:15px; font-weight:600; }
+  .topbar-badge { background:var(--accent-light); color:var(--accent); font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; }
+  .topbar-actions { margin-left:auto; display:flex; gap:8px; }
+  .btn { display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:var(--radius-sm); font-size:12px; font-weight:500; cursor:pointer; border:none; }
+  .btn-primary { background:var(--accent); color:#fff; }
+  .btn-secondary { background:var(--surface); color:var(--text-primary); border:1px solid var(--border); }
+  .btn-ghost { background:transparent; color:var(--text-secondary); }
+  .canvas { flex:1; overflow-y:auto; padding:24px; }
+
+  /* Widget on dashboard */
+  .widget { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+  .widget-header { padding:12px 16px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--border-light); }
+  .widget-icon { width:28px; height:28px; border-radius:6px; background:var(--accent-light); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+  .widget-title { font-size:13px; font-weight:600; flex:1; }
+  .icon-btn { width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1px solid var(--border); background:var(--surface); color:var(--text-secondary); font-size:13px; }
+  .icon-btn:hover { background:var(--bg); }
+
+  /* Table */
+  .mini-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .mini-table th { padding:8px 12px; text-align:left; font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--border); background:var(--bg); white-space:nowrap; }
+  .mini-table th .drag-handle { color:var(--text-muted); margin-right:4px; cursor:grab; }
+  .mini-table th .col-x { color:var(--text-muted); margin-left:6px; cursor:pointer; font-size:10px; display:none; }
+  .mini-table th:hover .col-x { display:inline; }
+  .mini-table th.dragging { background:var(--accent-light); border:1px dashed var(--accent); }
+  .mini-table td { padding:9px 12px; border-bottom:1px solid var(--border-light); color:var(--text-primary); }
+  .mini-table tr:last-child td { border-bottom:none; }
+  .mini-table tr:hover td { background:rgba(120,73,255,.03); cursor:pointer; }
+  .cell-link { color:var(--accent); font-weight:500; }
+  .status-pill { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:500; }
+  .status-active { background:var(--success-bg); color:var(--success); }
+  .status-pending { background:var(--warning-bg); color:var(--warning); }
+  .dot { width:6px; height:6px; border-radius:50%; background:currentColor; display:inline-block; }
+  .cell-muted { color:var(--text-muted); }
+
+  /* Builder toolbar */
+  .builder-toolbar { display:flex; align-items:center; gap:8px; padding:10px 16px; background:var(--bg); border-bottom:1px solid var(--border); }
+  .toolbar-title-wrap { display:flex; align-items:center; gap:6px; }
+  .toolbar-title { font-size:14px; font-weight:600; }
+  .pencil { color:var(--text-muted); cursor:pointer; font-size:12px; }
+  .filter-pills { display:flex; gap:6px; }
+  .filter-pill { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:500; background:var(--accent-light); color:var(--accent); border:1px solid rgba(120,73,255,.2); }
+  .filter-pill-x { cursor:pointer; font-size:10px; color:var(--accent); }
+  .toolbar-spacer { flex:1; }
+
+  /* Column picker dropdown */
+  .col-picker { position:absolute; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); box-shadow:var(--shadow-md); padding:8px 0; width:200px; z-index:50; }
+  .col-picker-title { padding:6px 12px 4px; font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; }
+  .col-picker-item { padding:7px 12px; font-size:12px; display:flex; align-items:center; gap:8px; cursor:pointer; }
+  .col-picker-item:hover { background:var(--bg); }
+  .col-picker-item .check { color:var(--accent); font-size:12px; }
+  .col-picker-item .hidden-icon { color:var(--text-muted); font-size:12px; }
+
+  /* Source picker modal */
+  .modal-overlay { position:absolute; inset:0; background:rgba(15,23,42,.4); display:flex; align-items:flex-start; justify-content:center; padding-top:60px; z-index:100; }
+  .modal { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow-md); width:560px; overflow:hidden; }
+  .modal-header { padding:20px 24px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .modal-title { font-size:15px; font-weight:600; }
+  .modal-close { color:var(--text-muted); cursor:pointer; font-size:18px; }
+  .modal-body { padding:20px 24px; }
+  .modal-footer { padding:14px 24px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px; }
+  .source-cards { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+  .source-card { border:2px solid var(--border); border-radius:var(--radius-sm); padding:16px; cursor:pointer; display:flex; flex-direction:column; gap:6px; transition:all .15s; }
+  .source-card:hover { border-color:var(--accent); background:var(--accent-light); }
+  .source-card.selected { border-color:var(--accent); background:var(--accent-light); }
+  .source-card-icon { font-size:22px; }
+  .source-card-label { font-size:13px; font-weight:600; }
+  .source-card-desc { font-size:11px; color:var(--text-secondary); }
+  .section-label { font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px; }
+
+  /* Side panel */
+  .side-panel { position:absolute; top:0; right:0; bottom:0; width:380px; background:var(--surface); border-left:1px solid var(--border); box-shadow:-4px 0 16px rgba(15,23,42,.08); display:flex; flex-direction:column; z-index:60; }
+  .sp-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; }
+  .sp-title { font-size:14px; font-weight:600; flex:1; }
+  .sp-close { color:var(--text-muted); cursor:pointer; font-size:16px; }
+  .sp-body { padding:16px 20px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:14px; }
+  .sp-section { display:flex; flex-direction:column; gap:6px; }
+  .sp-section-label { font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; }
+  .sp-field { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border-light); }
+  .sp-field-label { font-size:12px; color:var(--text-secondary); }
+  .sp-field-value { font-size:12px; font-weight:500; }
+
+  /* State panels */
+  .state-panel { display:none; flex:1; flex-direction:column; overflow:hidden; }
+  .state-panel.active { display:flex; }
+
+  /* Open questions */
+  .open-q { background:var(--warning-bg); border:1px solid #FDE68A; border-radius:var(--radius-sm); padding:12px 14px; margin-top:16px; }
+  .open-q-title { font-size:11px; font-weight:700; color:var(--warning); margin-bottom:6px; text-transform:uppercase; letter-spacing:.04em; }
+  .open-q li { font-size:12px; color:var(--text-secondary); margin-left:14px; margin-bottom:3px; }
+
+  /* Add insight bar */
+  .add-bar { background:var(--surface); border:1px dashed var(--border); border-radius:var(--radius-sm); padding:10px 16px; display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--text-secondary); font-size:12px; font-weight:500; margin-top:12px; }
+  .add-bar:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-light); }
+</style>
+</head>
+<body>
+
+<!-- State Bar -->
+<div class="state-bar">
+  <span class="state-bar-label">DES-138</span>
+  <div class="state-tabs">
+    <div class="state-tab active" onclick="showState('source-picker')">1. Pick Source</div>
+    <div class="state-tab" onclick="showState('live-table')">2. Customize Table</div>
+    <div class="state-tab" onclick="showState('filter-open')">Filters Open</div>
+    <div class="state-tab" onclick="showState('col-picker')">Column Picker</div>
+    <div class="state-tab" onclick="showState('side-panel')">Row → Side Panel</div>
+    <div class="state-tab" onclick="showState('dashboard')">Dashboard (saved)</div>
+  </div>
+  <a href="https://linear.app/unframe/issue/DES-138" target="_blank">↗ DES-138</a>
+</div>
+
+<div class="shell">
+  <nav class="sidebar">
+    <div class="nav-logo"><span>U</span></div>
+    <div class="nav-icon">⊞</div>
+    <div class="nav-icon active">▦</div>
+    <div class="nav-icon">⊜</div>
+    <div class="nav-spacer"></div>
+    <div class="nav-icon">⚙</div>
+  </nav>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title">Transactions Dashboard</div>
+      <div class="topbar-badge">Dashboard V4</div>
+      <div class="topbar-actions">
+        <button class="btn btn-secondary" onclick="showState('source-picker')">⊞ Add Widget</button>
+        <button class="btn btn-ghost">⋯</button>
+      </div>
+    </div>
+
+    <!-- ══ STATE: SOURCE PICKER ══ -->
+    <div id="state-source-picker" class="state-panel active">
+      <div class="canvas" style="filter:blur(1px);opacity:.4;pointer-events:none;">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+          <div class="widget" style="height:90px;"></div>
+          <div class="widget" style="height:90px;"></div>
+          <div class="widget" style="height:90px;"></div>
+        </div>
+      </div>
+      <div class="modal-overlay">
+        <div class="modal">
+          <div class="modal-header">
+            <div class="modal-title">Add Table Widget</div>
+            <div class="modal-close" onclick="showState('dashboard')">✕</div>
+          </div>
+          <div class="modal-body">
+            <div class="section-label">Choose data source</div>
+            <div class="source-cards">
+              <div class="source-card selected">
+                <div class="source-card-icon">💳</div>
+                <div class="source-card-label">Transactions</div>
+                <div class="source-card-desc">Payment records, amounts, dates, status</div>
+              </div>
+              <div class="source-card">
+                <div class="source-card-icon">📋</div>
+                <div class="source-card-label">Leases</div>
+                <div class="source-card-desc">Lease agreements, tenants, properties</div>
+              </div>
+            </div>
+            <div style="font-size:12px;color:var(--text-secondary);">Selecting a source will load the live table so you can customize columns and filters before saving.</div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="showState('dashboard')">Cancel</button>
+            <button class="btn btn-primary" onclick="showState('live-table')">Load Table →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STATE: LIVE TABLE (STEP 2) ══ -->
+    <div id="state-live-table" class="state-panel">
+      <div class="canvas" style="padding:0;">
+        <!-- Builder toolbar -->
+        <div class="builder-toolbar">
+          <div class="toolbar-title-wrap">
+            <div class="toolbar-title">Transactions</div>
+            <span class="pencil" title="Rename">✎</span>
+          </div>
+          <div class="filter-pills">
+            <!-- no filters yet -->
+          </div>
+          <div class="toolbar-spacer"></div>
+          <button class="btn btn-secondary" style="font-size:12px;">⊤ Filters</button>
+          <button class="btn btn-secondary" style="font-size:12px;">⊞ Columns</button>
+          <button class="btn btn-primary" style="font-size:12px;" onclick="showState('dashboard')">Save to Dashboard</button>
+          <button class="btn btn-ghost" style="font-size:12px;" onclick="showState('dashboard')">Cancel</button>
+        </div>
+        <div style="padding:16px;">
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Drag column headers to reorder · Hover a header to remove it · Use Filters + Columns toolbar to refine</div>
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th><span class="drag-handle">⠿</span>Transaction ID<span class="col-x">✕</span></th>
+                <th><span class="drag-handle">⠿</span>Date<span class="col-x">✕</span></th>
+                <th><span class="drag-handle">⠿</span>Tenant / Payer<span class="col-x">✕</span></th>
+                <th><span class="drag-handle">⠿</span>Property<span class="col-x">✕</span></th>
+                <th><span class="drag-handle">⠿</span>Amount<span class="col-x">✕</span></th>
+                <th><span class="drag-handle">⠿</span>Type<span class="col-x">✕</span></th>
+                <th><span class="drag-handle">⠿</span>Status<span class="col-x">✕</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td class="cell-link">TXN-8821</td><td class="cell-muted">Mar 1, 2026</td><td>Acme Corp</td><td class="cell-muted">Tower A</td><td>$18,400</td><td class="cell-muted">Rent</td><td><span class="status-pill status-active"><span class="dot"></span>Paid</span></td></tr>
+              <tr><td class="cell-link">TXN-8820</td><td class="cell-muted">Mar 1, 2026</td><td>Blue Sky Ltd</td><td class="cell-muted">Tower B</td><td>$9,200</td><td class="cell-muted">Rent</td><td><span class="status-pill status-pending"><span class="dot"></span>Pending</span></td></tr>
+              <tr><td class="cell-link">TXN-8814</td><td class="cell-muted">Feb 28, 2026</td><td>Vertex Systems</td><td class="cell-muted">Park Office</td><td>$24,750</td><td class="cell-muted">Rent</td><td><span class="status-pill status-active"><span class="dot"></span>Paid</span></td></tr>
+              <tr><td class="cell-link">TXN-8809</td><td class="cell-muted">Feb 27, 2026</td><td>Nova Analytics</td><td class="cell-muted">Tower A</td><td>$11,600</td><td class="cell-muted">Late Fee</td><td><span class="status-pill status-active"><span class="dot"></span>Paid</span></td></tr>
+              <tr><td class="cell-link">TXN-8801</td><td class="cell-muted">Feb 25, 2026</td><td>Crestline Inc</td><td class="cell-muted">Tower B</td><td>$15,000</td><td class="cell-muted">Rent</td><td><span class="status-pill" style="background:#FEF2F2;color:#EF4444;"><span class="dot"></span>Failed</span></td></tr>
+            </tbody>
+          </table>
+          <div style="padding:10px 0;font-size:11px;color:var(--text-muted);">Showing 5 of 248 transactions</div>
+
+          <div class="open-q">
+            <div class="open-q-title">⚠ Open Questions</div>
+            <ul>
+              <li>Is the builder a full-screen takeover or a modal? GRO-1401 implies dialog but also full-width table</li>
+              <li>What is the default column set for Transactions vs Leases?</li>
+              <li>How many rows shown in widget on dashboard after save?</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STATE: FILTER OPEN ══ -->
+    <div id="state-filter-open" class="state-panel">
+      <div class="canvas" style="padding:0;">
+        <div class="builder-toolbar">
+          <div class="toolbar-title-wrap">
+            <div class="toolbar-title">Transactions</div>
+            <span class="pencil">✎</span>
+          </div>
+          <div class="filter-pills">
+            <div class="filter-pill">Status: Paid <span class="filter-pill-x">✕</span></div>
+          </div>
+          <div class="toolbar-spacer"></div>
+          <button class="btn btn-primary" style="font-size:12px;background:var(--accent);">⊤ Filters</button>
+          <button class="btn btn-secondary" style="font-size:12px;">⊞ Columns</button>
+          <button class="btn btn-primary" style="font-size:12px;" onclick="showState('dashboard')">Save to Dashboard</button>
+        </div>
+        <!-- Filter panel below toolbar -->
+        <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;gap:12px;">
+          <span style="font-size:12px;font-weight:600;">Where</span>
+          <select style="font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-primary);">
+            <option>Status</option><option>Amount</option><option>Type</option><option>Date</option>
+          </select>
+          <select style="font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-primary);">
+            <option>is</option><option>is not</option><option>contains</option>
+          </select>
+          <select style="font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-primary);">
+            <option>Paid</option><option>Pending</option><option>Failed</option>
+          </select>
+          <button class="btn btn-primary" style="font-size:12px;">Add Filter</button>
+          <button class="btn btn-ghost" style="font-size:12px;">Cancel</button>
+        </div>
+        <div style="padding:16px;">
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th><span class="drag-handle">⠿</span>Transaction ID</th>
+                <th><span class="drag-handle">⠿</span>Date</th>
+                <th><span class="drag-handle">⠿</span>Tenant / Payer</th>
+                <th><span class="drag-handle">⠿</span>Amount</th>
+                <th><span class="drag-handle">⠿</span>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td class="cell-link">TXN-8821</td><td class="cell-muted">Mar 1, 2026</td><td>Acme Corp</td><td>$18,400</td><td><span class="status-pill status-active"><span class="dot"></span>Paid</span></td></tr>
+              <tr><td class="cell-link">TXN-8814</td><td class="cell-muted">Feb 28, 2026</td><td>Vertex Systems</td><td>$24,750</td><td><span class="status-pill status-active"><span class="dot"></span>Paid</span></td></tr>
+              <tr><td class="cell-link">TXN-8809</td><td class="cell-muted">Feb 27, 2026</td><td>Nova Analytics</td><td>$11,600</td><td><span class="status-pill status-active"><span class="dot"></span>Paid</span></td></tr>
+            </tbody>
+          </table>
+          <div style="padding:8px 0;font-size:11px;color:var(--text-muted);">3 results match current filter</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STATE: COLUMN PICKER ══ -->
+    <div id="state-col-picker" class="state-panel">
+      <div class="canvas" style="padding:0;position:relative;">
+        <div class="builder-toolbar">
+          <div class="toolbar-title-wrap"><div class="toolbar-title">Transactions</div><span class="pencil">✎</span></div>
+          <div class="toolbar-spacer"></div>
+          <button class="btn btn-secondary" style="font-size:12px;">⊤ Filters</button>
+          <button class="btn btn-primary" style="font-size:12px;background:var(--accent);">⊞ Columns</button>
+          <button class="btn btn-primary" style="font-size:12px;" onclick="showState('dashboard')">Save to Dashboard</button>
+        </div>
+        <!-- Column picker dropdown -->
+        <div class="col-picker" style="top:96px;right:130px;">
+          <div class="col-picker-title">Show / Hide Columns</div>
+          <div class="col-picker-item"><span class="check">✓</span> Transaction ID</div>
+          <div class="col-picker-item"><span class="check">✓</span> Date</div>
+          <div class="col-picker-item"><span class="check">✓</span> Tenant / Payer</div>
+          <div class="col-picker-item"><span class="check">✓</span> Property</div>
+          <div class="col-picker-item"><span class="check">✓</span> Amount</div>
+          <div class="col-picker-item" style="color:var(--text-muted);"><span class="hidden-icon">○</span> <span style="color:var(--text-muted);">Lease</span></div>
+          <div class="col-picker-item" style="color:var(--text-muted);"><span class="hidden-icon">○</span> <span style="color:var(--text-muted);">Notes</span></div>
+          <div class="col-picker-item"><span class="check">✓</span> Status</div>
+        </div>
+        <div style="padding:16px;">
+          <table class="mini-table">
+            <thead><tr><th>Transaction ID</th><th>Date</th><th>Tenant / Payer</th><th>Property</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td class="cell-link">TXN-8821</td><td class="cell-muted">Mar 1, 2026</td><td>Acme Corp</td><td class="cell-muted">Tower A</td><td>$18,400</td><td><span class="status-pill status-active"><span class="dot"></span>Paid</span></td></tr>
+              <tr><td class="cell-link">TXN-8820</td><td class="cell-muted">Mar 1, 2026</td><td>Blue Sky Ltd</td><td class="cell-muted">Tower B</td><td>$9,200</td><td><span class="status-pill status-pending"><span class="dot"></span>Pending</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STATE: SIDE PANEL ══ -->
+    <div id="state-side-panel" class="state-panel">
+      <div class="canvas" style="padding:0;position:relative;">
+        <div class="builder-toolbar" style="opacity:.5;">
+          <div class="toolbar-title-wrap"><div class="toolbar-title">Transactions</div></div>
+          <div class="toolbar-spacer"></div>
+          <button class="btn btn-secondary" style="font-size:12px;">Save to Dashboard</button>
+        </div>
+        <div style="padding:16px;padding-right:396px;">
+          <table class="mini-table">
+            <thead><tr><th>Transaction ID</th><th>Date</th><th>Tenant / Payer</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr style="background:var(--accent-light);"><td class="cell-link">TXN-8821</td><td class="cell-muted">Mar 1, 2026</td><td>Acme Corp</td><td>$18,400</td><td><span class="status-pill status-active"><span class="dot"></span>Paid</span></td></tr>
+              <tr><td class="cell-link">TXN-8820</td><td class="cell-muted">Mar 1, 2026</td><td>Blue Sky Ltd</td><td>$9,200</td><td><span class="status-pill status-pending"><span class="dot"></span>Pending</span></td></tr>
+              <tr><td class="cell-link">TXN-8814</td><td class="cell-muted">Feb 28, 2026</td><td>Vertex Systems</td><td>$24,750</td><td><span class="status-pill status-active"><span class="dot"></span>Paid</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- Side Panel -->
+        <div class="side-panel">
+          <div class="sp-header">
+            <div style="width:28px;height:28px;border-radius:6px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;font-size:13px;">💳</div>
+            <div class="sp-title">TXN-8821</div>
+            <button class="btn btn-ghost" style="font-size:12px;">↗ Open full</button>
+            <div class="sp-close" onclick="showState('live-table')">✕</div>
+          </div>
+          <div class="sp-body">
+            <div class="sp-section">
+              <div class="sp-section-label">Transaction Details</div>
+              <div class="sp-field"><span class="sp-field-label">Date</span><span class="sp-field-value">Mar 1, 2026</span></div>
+              <div class="sp-field"><span class="sp-field-label">Amount</span><span class="sp-field-value">$18,400</span></div>
+              <div class="sp-field"><span class="sp-field-label">Type</span><span class="sp-field-value">Rent</span></div>
+              <div class="sp-field"><span class="sp-field-label">Status</span><span class="sp-field-value" style="color:var(--success);">● Paid</span></div>
+            </div>
+            <div class="sp-section">
+              <div class="sp-section-label">Related</div>
+              <div class="sp-field"><span class="sp-field-label">Tenant</span><span class="sp-field-value" style="color:var(--accent);">Acme Corp</span></div>
+              <div class="sp-field"><span class="sp-field-label">Property</span><span class="sp-field-value">Tower A, Fl. 12</span></div>
+              <div class="sp-field"><span class="sp-field-label">Lease</span><span class="sp-field-value" style="color:var(--accent);">LSE-2024-001</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STATE: DASHBOARD (SAVED WIDGET) ══ -->
+    <div id="state-dashboard" class="state-panel">
+      <div class="canvas">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;">
+          <div class="widget" style="min-height:80px;"><div class="widget-header"><div class="widget-icon">💰</div><div class="widget-title">Total Revenue</div></div><div style="padding:12px 16px;font-size:20px;font-weight:700;">$2,847,320</div></div>
+          <div class="widget" style="min-height:80px;"><div class="widget-header"><div class="widget-icon">📋</div><div class="widget-title">Active Leases</div></div><div style="padding:12px 16px;font-size:20px;font-weight:700;">148</div></div>
+          <div class="widget" style="min-height:80px;"><div class="widget-header"><div class="widget-icon">🏢</div><div class="widget-title">Occupancy</div></div><div style="padding:12px 16px;font-size:20px;font-weight:700;">94.2%</div></div>
+        </div>
+        <!-- Saved table widget -->
+        <div class="widget">
+          <div class="widget-header">
+            <div class="widget-icon">💳</div>
+            <div class="widget-title" style="flex:1;">Transactions</div>
+            <div class="icon-btn" title="Edit widget" onclick="showState('live-table')">✎</div>
+            <div class="icon-btn" style="margin-left:4px;">⋯</div>
+          </div>
+          <table class="mini-table">
+            <thead><tr><th>Transaction ID</th><th>Date</th><th>Tenant / Payer</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td class="cell-link">TXN-8821</td><td class="cell-muted">Mar 1, 2026</td><td>Acme Corp</td><td>$18,400</td><td><span class="status-pill status-active"><span class="dot"></span>Paid</span></td></tr>
+              <tr><td class="cell-link">TXN-8820</td><td class="cell-muted">Mar 1, 2026</td><td>Blue Sky Ltd</td><td>$9,200</td><td><span class="status-pill status-pending"><span class="dot"></span>Pending</span></td></tr>
+              <tr><td class="cell-link">TXN-8814</td><td class="cell-muted">Feb 28, 2026</td><td>Vertex Systems</td><td>$24,750</td><td><span class="status-pill status-active"><span class="dot"></span>Paid</span></td></tr>
+            </tbody>
+          </table>
+          <div style="padding:10px 16px;border-top:1px solid var(--border-light);background:var(--bg);display:flex;justify-content:space-between;">
+            <span style="font-size:11px;color:var(--text-muted);">Showing 3 of 248</span>
+            <a style="font-size:12px;color:var(--accent);cursor:pointer;">View all →</a>
+          </div>
+        </div>
+        <div class="add-bar" onclick="showState('source-picker')">+ Add insight</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function showState(s) {
+  document.querySelectorAll('.state-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.state-tab').forEach(t => t.classList.remove('active'));
+  const map = { 'source-picker':0, 'live-table':1, 'filter-open':2, 'col-picker':3, 'side-panel':4, 'dashboard':5 };
+  const tabs = document.querySelectorAll('.state-tab');
+  if (tabs[map[s]]) tabs[map[s]].classList.add('active');
+  const panel = document.getElementById('state-' + s);
+  if (panel) panel.classList.add('active');
+}
+</script>
+</body>
+</html>
